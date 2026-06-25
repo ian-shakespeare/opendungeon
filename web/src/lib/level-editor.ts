@@ -1,6 +1,5 @@
 import Controller, { MouseButton } from "./controller";
 import type Game from "./game";
-import HexagonalGrid from "./hexagonal-grid";
 import Rectangle from "./rectangle";
 import Renderer from "./renderer";
 import * as GLM from "gl-matrix";
@@ -12,6 +11,7 @@ import mudTexture from "../assets/mud.png";
 import highlightTexture from "../assets/highlight.png";
 import { Axial, Cartesian, Cube } from "./point";
 import Texture from "./texture";
+import PathfindingGrid from "./pathfinding-grid";
 
 const HEXAGON_WIDTH = 1 / Math.sqrt(3);
 const HEXAGON_HEIGHT = 0.25;
@@ -28,9 +28,14 @@ export type BrushTool =
   | { type: "weightbrush"; weight: number }
   | { type: "texturebrush"; texture: string | null };
 
+export type PaintBucketTool =
+  | { type: "weightpaintbucket"; weight: number }
+  | { type: "texturepaintbucket"; texture: string | null };
+
 export type LevelEditorTool =
   | BrushTool
-  | { type: "measure"; start: Axial | null };
+  | { type: "measure"; start: Axial | null }
+  | PaintBucketTool;
 
 export const DEFAULT_TOOL: LevelEditorTool = {
   type: "texturebrush",
@@ -41,8 +46,8 @@ export default class LevelEditor implements Game {
   private renderer: Renderer | undefined;
   private windowWidth: number = 0;
   private windowHeight: number = 0;
-  private grid: HexagonalGrid<{ weight: number; texture: string | null }> =
-    new HexagonalGrid(DEFAULT_GRID_WIDTH, DEFAULT_GRID_HEIGHT, {
+  private grid: PathfindingGrid<{ weight: number; texture: string | null }> =
+    new PathfindingGrid(DEFAULT_GRID_WIDTH, DEFAULT_GRID_HEIGHT, {
       weight: 0,
       texture: null,
     });
@@ -128,18 +133,53 @@ export default class LevelEditor implements Game {
         }
         case "release": {
           if (this.input.type === "dragging") {
-            if (
-              this.tool.type === "texturebrush" &&
-              this.input.button === MouseButton.Left
-            ) {
-              this.paintCellTexture(event.x, event.y, this.tool.texture);
-            }
+            if (this.input.button === MouseButton.Left) {
+              if (this.tool.type === "texturebrush") {
+                this.paintCellTexture(event.x, event.y, this.tool.texture);
+              }
 
-            if (
-              this.tool.type === "weightbrush" &&
-              this.input.button === MouseButton.Left
-            ) {
-              this.paintCellWeight(event.x, event.y, this.tool.weight);
+              if (this.tool.type === "weightbrush") {
+                this.paintCellWeight(event.x, event.y, this.tool.weight);
+              }
+
+              if (
+                (this.tool.type === "texturepaintbucket" ||
+                  this.tool.type === "weightpaintbucket") &&
+                this.cursorLocation
+              ) {
+                // get all accessible cells
+                const start = this.grid.getCell(this.cursorLocation);
+                if (start) {
+                  const points = this.grid.getAccessiblePoints(
+                    this.cursorLocation,
+                    this.tool.type === "texturepaintbucket"
+                      ? (point) => {
+                          const cell = this.grid.getCell(point);
+                          if (!cell) {
+                            return false;
+                          }
+
+                          return start.value.texture === cell.value.texture;
+                        }
+                      : (point) => {
+                          const cell = this.grid.getCell(point);
+                          if (!cell) {
+                            return false;
+                          }
+
+                          return start.value.weight === cell.value.weight;
+                        },
+                  );
+
+                  for (const point of points) {
+                    if (this.tool.type === "texturepaintbucket") {
+                      this.paintPointTexture(point, this.tool.texture);
+                    } else {
+                      this.paintPointWeight(point, this.tool.weight);
+                    }
+                  }
+                }
+              }
             }
 
             if (this.tool.type === "measure") {
@@ -343,6 +383,7 @@ export default class LevelEditor implements Game {
     return point.toAxial(HEXAGON_WIDTH, HEXAGON_HEIGHT);
   }
 
+  // paint cell by canvas coordinate
   private paintCellWeight(x: number, y: number, weight: number) {
     const axial = this.canvasCoordToAxial(x, y);
 
@@ -354,6 +395,17 @@ export default class LevelEditor implements Game {
     this.grid.setCell(axial, { ...original.value, weight });
   }
 
+  // paint cell by axial coordinate
+  private paintPointWeight(point: Axial, weight: number) {
+    const original = this.grid.getCell(point);
+    if (!original) {
+      return;
+    }
+
+    this.grid.setCell(point, { ...original.value, weight });
+  }
+
+  // paint cell by canvas coordinate
   private paintCellTexture(x: number, y: number, texture: string | null) {
     const axial = this.canvasCoordToAxial(x, y);
 
@@ -363,6 +415,19 @@ export default class LevelEditor implements Game {
     }
 
     this.grid.setCell(axial, {
+      ...original.value,
+      texture,
+    });
+  }
+
+  // paint cell by axial coordinate
+  private paintPointTexture(point: Axial, texture: string | null) {
+    const original = this.grid.getCell(point);
+    if (!original) {
+      return;
+    }
+
+    this.grid.setCell(point, {
       ...original.value,
       texture,
     });

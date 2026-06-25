@@ -4,6 +4,7 @@ import LevelEditor, {
   type LevelEditorViewMode,
 } from "../lib/level-editor";
 import BrushToolOptionMenu from "./BrushToolOptionMenu";
+import PaintBucketToolOptionMenu from "./PaintBucketToolOptionMenu";
 
 type LevelEditorToolMenuProps = {
   initialTool: LevelEditorTool;
@@ -35,6 +36,13 @@ export default function LevelEditorToolMenu({
               tool: { type: "texturebrush", texture: null },
             },
             {
+              label: "Paint Bucket",
+              selected:
+                activeTool.type === "weightpaintbucket" ||
+                activeTool.type === "texturepaintbucket",
+              tool: { type: "texturepaintbucket", texture: null },
+            },
+            {
               label: "Measure",
               selected: activeTool.type === "measure",
               tool: { type: "measure", start: null },
@@ -43,7 +51,10 @@ export default function LevelEditorToolMenu({
             <li key={i} className="grid">
               <button
                 data-selected={selected}
-                onClick={() => setActiveTool(tool as LevelEditor["tool"])}
+                onClick={() => {
+                  onChangeViewMode("texture");
+                  setActiveTool(tool as LevelEditor["tool"]);
+                }}
                 className="border-2 border-aurora-gray-1200 px-4 py-3 bg-aurora-gray-1100 cursor-pointer rounded data-[selected=true]:border-aurora-gray-400 data-[selected=true]:bg-aurora-gray-900"
               >
                 {label}
@@ -61,6 +72,18 @@ export default function LevelEditorToolMenu({
               setActiveTool(brush);
               onChangeViewMode(
                 brush.type === "texturebrush" ? "texture" : "weight",
+              );
+            }}
+          />
+        )}
+        {(activeTool.type === "texturepaintbucket" ||
+          activeTool.type === "weightpaintbucket") && (
+          <PaintBucketToolOptionMenu
+            bucket={activeTool}
+            onChangeBucket={(bucket) => {
+              setActiveTool(bucket);
+              onChangeViewMode(
+                bucket.type === "texturepaintbucket" ? "texture" : "weight",
               );
             }}
           />

@@ -9,6 +9,36 @@ export default class PathfindingGrid<T> extends HexagonalGrid<
     super(w, h, defaultValue);
   }
 
+  getAccessiblePoints(
+    start: Axial,
+    isAccessible: (point: Axial) => boolean,
+  ): Axial[] {
+    const startCell = this.getCell(start);
+    if (!startCell) {
+      return [];
+    }
+
+    const frontier = [start];
+    const visited = new Set([start.stringify()]);
+    const points = [start];
+
+    while (frontier.length > 0) {
+      const current = frontier.shift()!;
+
+      for (const next of current.getNeighbors()) {
+        if (!isAccessible(next) || visited.has(next.stringify())) {
+          continue;
+        }
+
+        frontier.push(next);
+        visited.add(next.stringify());
+        points.push(next);
+      }
+    }
+
+    return points;
+  }
+
   getShortestPath(
     start: Axial,
     goal: Axial,
