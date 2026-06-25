@@ -1,6 +1,9 @@
 name: Tidy
 
-on: [push]
+on:
+  push:
+  pull_request:
+    branches: [ main ]
 
 jobs:
   tidy-server:
