@@ -1,6 +1,4 @@
-import { useEffect, useState } from "react";
 import { type BrushTool } from "../lib/level-editor";
-import api, { type APICellTexture } from "../lib/api";
 
 type BrushToolOptionMenuProps = {
   brush: BrushTool;
@@ -11,18 +9,8 @@ export default function BrushToolOptionMenu({
   brush,
   onChangeBrush,
 }: BrushToolOptionMenuProps) {
-  const [brushTextures, setBrushTextures] = useState<APICellTexture[]>([]);
-
-  useEffect(() => {
-    api.listCellTextures().then((res) => {
-      if (res.ok) {
-        setBrushTextures(res.textures);
-      }
-    });
-  }, []);
-
   return (
-    <div className="text-white grid bg-aurora-gray-1200 rounded px-4 py-3 grid gap-3">
+    <div className="text-white grid bg-aurora-gray-1200 rounded px-4 py-3 grid gap-3 pointer-events-auto">
       <div>
         {(
           [
@@ -50,34 +38,6 @@ export default function BrushToolOptionMenu({
           </button>
         ))}
       </div>
-      {brush.type === "texturebrush" && (
-        <div>
-          <fieldset>
-            {[
-              { texture: null, label: "Eraser" },
-              ...brushTextures.map(({ key, displayName }) => ({
-                texture: key,
-                label: displayName,
-              })),
-            ].map(({ texture, label }, i) => (
-              <div key={i}>
-                <input
-                  id={`${texture}-texture-select`}
-                  type="radio"
-                  checked={brush.texture === texture}
-                  onChange={() =>
-                    onChangeBrush({
-                      texture,
-                      type: "texturebrush",
-                    })
-                  }
-                />
-                <label htmlFor={`${texture}-texture-select`}>{label}</label>
-              </div>
-            ))}
-          </fieldset>
-        </div>
-      )}
       {brush.type === "weightbrush" && (
         <div>
           <fieldset>

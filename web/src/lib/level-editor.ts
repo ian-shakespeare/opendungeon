@@ -55,8 +55,13 @@ export default class LevelEditor implements Game {
       type: "none",
     };
   private cursorLocation: Axial | null = null;
+  private isPaused = false;
   tool: LevelEditorTool = DEFAULT_TOOL;
   viewMode: LevelEditorViewMode = "texture";
+
+  get paused(): boolean {
+    return this.isPaused;
+  }
 
   async start(canvas: HTMLCanvasElement) {
     this.renderer = new Renderer(canvas, {
@@ -103,6 +108,10 @@ export default class LevelEditor implements Game {
   }
 
   update() {
+    if (this.isPaused) {
+      return;
+    }
+
     for (const event of this.controller!.getMouseEvents()) {
       switch (event.type) {
         case "clear": {
@@ -356,7 +365,7 @@ export default class LevelEditor implements Game {
 
   async loadTexture(name: string, src: string) {
     const originalTexture = this.renderer!.activeTexture;
-    await this.renderer!.loadTexture(name, src);
+    await this.renderer!.loadTexture(name, src, { mode: "nearest" });
 
     if (originalTexture) {
       this.renderer!.useTexture(originalTexture);
@@ -365,6 +374,14 @@ export default class LevelEditor implements Game {
 
   hasTexture(name: string) {
     return this.renderer!.hasTexture(name);
+  }
+
+  pause() {
+    this.isPaused = true;
+  }
+
+  unpause() {
+    this.isPaused = false;
   }
 
   private canvasCoordToAxial(x: number, y: number): Axial {

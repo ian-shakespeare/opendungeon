@@ -13,16 +13,25 @@ function LevelEditorPage() {
   const editor = useRef(new LevelEditor());
 
   return (
-    <main className="grid justify-start">
+    <main className="grid justify-start h-full">
       <LevelEditorToolMenu
         initialTool={DEFAULT_TOOL}
         onChangeTool={(tool) => {
-          if (tool.type === "texturebrush") {
+          if (
+            tool.type === "texturebrush" ||
+            tool.type === "texturepaintbucket"
+          ) {
             if (tool.texture && !editor.current.hasTexture(tool.texture)) {
-              editor.current.loadTexture(
-                tool.texture,
-                api.getCellTextureUrl(tool.texture).toString(),
-              );
+              editor.current.pause(); // lock the editor to prevent drawing a texture that isn't loaded
+              editor.current
+                .loadTexture(
+                  tool.texture,
+                  api.getCellTextureUrl(tool.texture).toString(),
+                )
+                .then(() => editor.current.unpause())
+                .catch(() =>
+                  alert("Failed to load texture. Please reload the page."),
+                );
             }
           }
           editor.current.tool = tool;

@@ -5,6 +5,7 @@ import LevelEditor, {
 } from "../lib/level-editor";
 import BrushToolOptionMenu from "./BrushToolOptionMenu";
 import PaintBucketToolOptionMenu from "./PaintBucketToolOptionMenu";
+import TextureSelectionMenu from "./TextureSelectionMenu";
 
 type LevelEditorToolMenuProps = {
   initialTool: LevelEditorTool;
@@ -24,9 +25,9 @@ export default function LevelEditorToolMenu({
   }, [activeTool]);
 
   return (
-    <div className="grid grid-cols-2 p-6 w-screen">
-      <aside className="z-10 relative justify-self-start">
-        <ul className="grid gap-2 text-white w-3xs bg-aurora-gray-1200 rounded px-4 py-3">
+    <div className="grid grid-cols-2 p-6 w-screen h-full">
+      <aside className="z-10 relative justify-self-start pointer-events-none">
+        <ul className="grid gap-2 text-white w-3xs bg-aurora-gray-1200 rounded px-4 py-3 pointer-events-auto">
           {[
             {
               label: "Brush",
@@ -63,7 +64,7 @@ export default function LevelEditorToolMenu({
           ))}
         </ul>
       </aside>
-      <aside className="z-10 relative justify-self-end">
+      <aside className="z-10 relative justify-self-end pointer-events-none">
         {(activeTool.type === "texturebrush" ||
           activeTool.type === "weightbrush") && (
           <BrushToolOptionMenu
@@ -89,6 +90,17 @@ export default function LevelEditorToolMenu({
           />
         )}
       </aside>
+      <footer className="col-span-2 z-10 content-end pointer-events-none">
+        {(activeTool.type === "texturebrush" ||
+          activeTool.type === "texturepaintbucket") && (
+          <TextureSelectionMenu
+            selected={activeTool.texture}
+            onSelect={(brush) => {
+              setActiveTool({ ...activeTool, texture: brush });
+            }}
+          />
+        )}
+      </footer>
     </div>
   );
 }
