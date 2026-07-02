@@ -48,36 +48,32 @@ const fragmentShader = `
     if (!u_enable_border || distance < inner_edge) {
       gl_FragColor = texture2D(u_texture, v_tex_coord) * u_color;
     } else {
-      gl_FragColor = texture2D(u_texture, v_tex_coord) * u_border_color;
+      gl_FragColor = u_border_color;
     }
   }
 `;
 
 export default class Hexagon extends Element {
+  // use 6 triangle hexagon for simpler border creation
   // prettier-ignore
   static readonly vertices = new Float32Array([
-    // X,  Y,  Z,   U,   V
-    // -------------------------
-    // Vertex 0: The brand new center vertex
-    0, 0, 0,   1, 1, 
-
-    // Vertices 1-6: Your original outer rim vertices
-    0, 0.5, 0,   1, 0,                  // Top point
-    -Math.sqrt(3) / 4, 0.25, 0,   0, 0.5,   // Top left
-    -Math.sqrt(3) / 4, -0.25, 0,  0, 1.5,   // Bottom left
-    0, -0.5, 0,   1, 2,                  // Bottom point
-    Math.sqrt(3) / 4, -0.25, 0,   2, 1.5,   // Bottom right
-    Math.sqrt(3) / 4, 0.25, 0,    2, 0.5    // Top right
+    0, 0, 0, 1, 1,                        // center
+    0, 0.5, 0, 1, 0,                      // top
+    -Math.sqrt(3) / 4, 0.25, 0, 0, 0.5,   // top left
+    -Math.sqrt(3) / 4, -0.25, 0, 0, 1.5,  // bottom left
+    0, -0.5, 0, 1, 2,                     // bottom
+    Math.sqrt(3) / 4, -0.25, 0, 2, 1.5,   // bottom right
+    Math.sqrt(3) / 4, 0.25, 0, 2, 0.5     // top right
   ]);
 
   // prettier-ignore
   static readonly indices = new Uint16Array([
-    0, 1, 2, // Triangle 1
-    0, 2, 3, // Triangle 2
-    0, 3, 4, // Triangle 3
-    0, 4, 5, // Triangle 4
-    0, 5, 6, // Triangle 5
-    0, 6, 1  // Triangle 6 (Closes the loop back to the start)
+    0, 1, 2,
+    0, 2, 3,
+    0, 3, 4,
+    0, 4, 5,
+    0, 5, 6,
+    0, 6, 1,
   ]);
 
   constructor(gl: WebGL2RenderingContext) {
