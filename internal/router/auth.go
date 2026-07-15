@@ -1,4 +1,4 @@
-package routes
+package router
 
 import (
 	"errors"
@@ -22,7 +22,7 @@ import (
 //	@Failure		400			{string}	string	"Bad request"
 //	@Failure		500			{string}	string	"Server error"
 //	@Router			/api/auth/register [post]
-func registerUser(c fiber.Ctx) error {
+func (r *router) registerUser(c fiber.Ctx) error {
 	var credentials struct {
 		Email    string `json:"email"`
 		Password string `json:"password"`
@@ -32,23 +32,13 @@ func registerUser(c fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).SendString("Invalid request body.")
 	}
 
-	disableUserCreation, err := getState[bool](c, "disableUserCreation")
-	if err != nil {
-		return err
-	}
-
-	dbSrv, err := getDBService(c)
-	if err != nil {
-		return err
-	}
-
-	userId, err := handlers.RegisterUser(c.Context(), disableUserCreation, dbSrv, credentials.Email, credentials.Password)
+	userId, err := handlers.RegisterUser(c.Context(), r.disableUserCreation, r.db, credentials.Email, credentials.Password)
 	if err != nil {
 		return err
 	}
 
 	sess := session.FromContext(c)
-	sess.Set("user_id", userId.String())
+	sess.Set("user_id", userId)
 	return c.SendStatus(fiber.StatusCreated)
 }
 
@@ -64,7 +54,7 @@ func registerUser(c fiber.Ctx) error {
 //	@Failure		400			{string}	string	"Bad request"
 //	@Failure		500			{string}	string	"Server error"
 //	@Router			/api/auth/sign-in [post]
-func signIn(c fiber.Ctx) error {
+func (r *router) signIn(c fiber.Ctx) error {
 	var credentials struct {
 		Email    string `json:"email"`
 		Password string `json:"password"`
@@ -74,18 +64,13 @@ func signIn(c fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).SendString("Invalid request body.")
 	}
 
-	dbSrv, err := getDBService(c)
-	if err != nil {
-		return err
-	}
-
-	userId, err := handlers.SignIn(c.Context(), dbSrv, credentials.Email, credentials.Password)
+	userId, err := handlers.SignIn(c.Context(), r.db, credentials.Email, credentials.Password)
 	if err != nil {
 		return err
 	}
 
 	sess := session.FromContext(c)
-	sess.Set("user_id", userId.String())
+	sess.Set("user_id", userId)
 	return c.SendStatus(fiber.StatusCreated)
 }
 
@@ -98,23 +83,8 @@ func signIn(c fiber.Ctx) error {
 //	@Success		200	{object}	[]handlers.AuthProvider	"Available auth providers"
 //	@Failure		500	{string}	string					"Server error"
 //	@Router			/api/auth/providers [get]
-func listAuthProviders(c fiber.Ctx) error {
-	baseUrl, err := getState[*url.URL](c, "baseUrl")
-	if err != nil {
-		return err
-	}
-
-	discordClientID, err := getState[string](c, "discordClientId")
-	if err != nil {
-		return err
-	}
-
-	discordClientSecret, err := getState[string](c, "discordClientSecret")
-	if err != nil {
-		return err
-	}
-
-	providers, err := handlers.ListAuthProviders(c.Context(), baseUrl, discordClientID, discordClientSecret)
+func (r *router) listAuthProviders(c fiber.Ctx) error {
+	providers, err := handlers.ListAuthProviders(c.Context(), r.baseURL, r.discordClientID, r.discordClientSecret)
 	if err != nil {
 		return err
 	}
@@ -141,38 +111,8 @@ func listAuthProviders(c fiber.Ctx) error {
 //	@Success		303
 //	@Failure		500	{string}	string	"Server error"
 //	@Router			/api/auth/providers/discord/callback [get]
-func discordCallback(c fiber.Ctx) error {
-	disableUserCreation, err := getState[bool](c, "disableUserCreation")
-	if err != nil {
-		return err
-	}
-
-	dbSrv, err := getDBService(c)
-	if err != nil {
-		return err
-	}
-
-	discordClientID, err := getState[string](c, "discordClientId")
-	if err != nil {
-		return err
-	}
-
-	discordClientSecret, err := getState[string](c, "discordClientSecret")
-	if err != nil {
-		return err
-	}
-
-	baseUrl, err := getState[*url.URL](c, "baseUrl")
-	if err != nil {
-		return err
-	}
-
-	clientUrl, err := getState[*url.URL](c, "clientUrl")
-	if err != nil {
-		return err
-	}
-
-	signInUrl := clientUrl.JoinPath("sign-in")
+func (r *router) discordCallback(c fiber.Ctx) error {
+	signInUrl := r.clientURL.JoinPath("sign-in")
 
 	stateCookie := c.Cookies("oauth_state")
 	code := c.Query("code")
@@ -185,7 +125,7 @@ func discordCallback(c fiber.Ctx) error {
 		return c.Redirect().Status(fiber.StatusSeeOther).To(signInUrl.String())
 	}
 
-	redirect, err := handlers.DiscordCallback(c.Context(), disableUserCreation, dbSrv, discordClientID, discordClientSecret, baseUrl, clientUrl, code, state)
+	redirect, err := handlers.DiscordCallback(c.Context(), r.disableUserCreation, r.db, r.discordClientID, r.discordClientSecret, r.baseURL, r.clientURL, code, state)
 	if err != nil {
 		q := url.Values{}
 		fiberErr := new(fiber.Error)
@@ -197,7 +137,7 @@ func discordCallback(c fiber.Ctx) error {
 	}
 
 	sess := session.FromContext(c)
-	sess.Set("user_id", redirect.UserID.String())
+	sess.Set("user_id", redirect.UserID)
 
 	return c.Redirect().Status(fiber.StatusSeeOther).To(redirect.Redirect.String())
 }

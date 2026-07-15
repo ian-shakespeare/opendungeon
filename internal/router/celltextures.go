@@ -1,4 +1,4 @@
-package routes
+package router
 
 import (
 	"net/http"
@@ -23,7 +23,7 @@ import (
 //	@Failure		415			{string}	string							"Unsupported media type"
 //	@Failure		500			{string}	string							"Server error"
 //	@Router			/api/cell-textures [post]
-func createCellTexture(c fiber.Ctx) error {
+func (r *router) createCellTexture(c fiber.Ctx) error {
 	form, err := c.MultipartForm()
 	if err != nil {
 		return c.Status(http.StatusBadRequest).SendString("Invalid request body.")
@@ -52,17 +52,7 @@ func createCellTexture(c fiber.Ctx) error {
 	}
 	defer file.Close()
 
-	dbSrv, err := getDBService(c)
-	if err != nil {
-		return err
-	}
-
-	storageSrv, err := getStorageService(c)
-	if err != nil {
-		return err
-	}
-
-	texture, err := handlers.CreateCellTexture(c, dbSrv, storageSrv, key, displayName, file)
+	texture, err := handlers.CreateCellTexture(c, r.db, r.storage, key, displayName, file)
 	if err != nil {
 		return err
 	}
@@ -82,20 +72,10 @@ func createCellTexture(c fiber.Ctx) error {
 //	@Failure		404	{string}	string	"Not found"
 //	@Failure		500	{string}	string	"Server error"
 //	@Router			/api/cell-textures/{key} [get]
-func getCellTexture(c fiber.Ctx) error {
+func (r *router) getCellTexture(c fiber.Ctx) error {
 	key := c.Params("key")
 
-	dbSrv, err := getDBService(c)
-	if err != nil {
-		return err
-	}
-
-	storageSrv, err := getStorageService(c)
-	if err != nil {
-		return err
-	}
-
-	texture, err := handlers.GetCellTexture(c, dbSrv, storageSrv, key)
+	texture, err := handlers.GetCellTexture(c, r.db, r.storage, key)
 	if err != nil {
 		return err
 	}
@@ -113,13 +93,8 @@ func getCellTexture(c fiber.Ctx) error {
 //	@Success		200	{object}	[]database.ListCellTexturesRow	"List of cell textures"
 //	@Failure		500	{string}	string							"Server error"
 //	@Router			/api/cell-textures [get]
-func listCellTextures(c fiber.Ctx) error {
-	dbSrv, err := getDBService(c)
-	if err != nil {
-		return err
-	}
-
-	textures, err := handlers.ListCellTextures(c, dbSrv)
+func (r *router) listCellTextures(c fiber.Ctx) error {
+	textures, err := handlers.ListCellTextures(c, r.db)
 	if err != nil {
 		return err
 	}

@@ -1,0 +1,36 @@
+# Version control
+.git/
+.github/
+.gitignore
+
+# Builds
+bin/
+tmp/
+web/build/
+
+# Docs
+examples/
+LICENSE
+README.md
+web/README.md
+
+# Dev tools
+.air.toml
+.editorconfig
+Makefile
+
+# Editor files
+.idea/
+.vscode/
+*.sw*
+
+# Environment variables
+*.env
+env.template
+
+# Data files
+*.db
+.data/
+
+# Dependencies
+web/node_modules/

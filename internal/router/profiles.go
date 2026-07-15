@@ -1,4 +1,4 @@
-package routes
+package router
 
 import (
 	"github.com/gofiber/fiber/v3"
@@ -19,10 +19,10 @@ import (
 //	@Failure		401		{string}	string	"Unauthorized"
 //	@Failure		500		{string}	string	"Server error"
 //	@Router			/api/profiles/me [put]
-func upsertMyProfile(c fiber.Ctx) error {
-	userId, err := getUserId(c)
-	if err != nil {
-		return err
+func (r *router) upsertMyProfile(c fiber.Ctx) error {
+	userId, ok := getUserId(c)
+	if !ok {
+		return fiber.ErrUnauthorized
 	}
 
 	var profile handlers.UpsertedProfile
@@ -30,12 +30,7 @@ func upsertMyProfile(c fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).SendString("Invalid request body.")
 	}
 
-	dbSrv, err := getDBService(c)
-	if err != nil {
-		return err
-	}
-
-	upserted, err := handlers.UpsertProfile(c.Context(), dbSrv, userId, profile)
+	upserted, err := handlers.UpsertProfile(c.Context(), r.db, userId, profile)
 	if err != nil {
 		return err
 	}
@@ -54,18 +49,13 @@ func upsertMyProfile(c fiber.Ctx) error {
 //	@Failure		404		{string}	string	"Not found"
 //	@Failure		500		{string}	string	"Server error"
 //	@Router			/api/profiles/me [get]
-func getMyProfile(c fiber.Ctx) error {
-	userId, err := getUserId(c)
-	if err != nil {
-		return err
+func (r router) getMyProfile(c fiber.Ctx) error {
+	userId, ok := getUserId(c)
+	if !ok {
+		return fiber.ErrUnauthorized
 	}
 
-	dbSrv, err := getDBService(c)
-	if err != nil {
-		return err
-	}
-
-	profile, err := handlers.GetProfile(c.Context(), dbSrv, userId)
+	profile, err := handlers.GetProfile(c.Context(), r.db, userId)
 	if err != nil {
 		return err
 	}

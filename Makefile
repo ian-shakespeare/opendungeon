@@ -17,7 +17,7 @@ clean:
 	rm -rf $(BIN) $(DATA)
 
 cyclo:
-	$(CYCLO) -over $(cyclolevel) .
+	$(CYCLO) -over $(cyclolevel) -ignore "web/" .
 
 docs:
 	swag fmt

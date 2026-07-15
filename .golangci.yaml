@@ -5,3 +5,5 @@ linters:
       - linters:
         - errcheck
         source: "^\\s*defer\\s+"
+    paths:
+      - "web/*"

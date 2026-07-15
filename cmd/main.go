@@ -12,7 +12,7 @@ import (
 	"github.com/gofiber/fiber/v3/log"
 	"github.com/joho/godotenv"
 	"github.com/opendungeon/opendungeon/internal/env"
-	"github.com/opendungeon/opendungeon/internal/routes"
+	"github.com/opendungeon/opendungeon/internal/router"
 	"github.com/opendungeon/opendungeon/internal/services"
 )
 
@@ -137,30 +137,34 @@ func main() {
 		log.SetOutput(logFile)
 	}
 
-	app := fiber.New(cfg)
-	routes.Register(app, isDevMode, filepath.Join(baseDir, staticDir))
-
 	baseUrlStr := env.Fallback("BASE_URL", "http://localhost:8000")
 	baseUrl, err := url.Parse(baseUrlStr)
 	if err != nil {
 		log.Fatalf("invalid base url: %v", err)
 	}
-	app.State().Set("baseUrl", baseUrl)
 
 	clientUrlStr := env.Fallback("CLIENT_URL", "http://localhost:5173")
 	clientUrl, err := url.Parse(clientUrlStr)
 	if err != nil {
 		log.Fatalf("invalid client url: %v", err)
 	}
-	app.State().Set("clientUrl", clientUrl)
 
 	disableUserCreation, _ := env.Get("DISABLE_USER_CREATION")
-	app.State().Set("disableUserCreation", disableUserCreation == "true")
 
 	discordClientID, _ := env.GetOrSecret("DISCORD_CLIENT_ID")
 	discordClientSecret, _ := env.GetOrSecret("DISCORD_CLIENT_SECRET")
-	app.State().Set("discordClientId", discordClientID)
-	app.State().Set("discordClientSecret", discordClientSecret)
+
+	app := router.New(router.Config{
+		IsDevMode:           isDevMode,
+		StaticDir:           filepath.Join(baseDir, staticDir),
+		DB:                  dbSrv,
+		Storage:             storageSrv,
+		BaseURL:             baseUrl,
+		ClientURL:           clientUrl,
+		DisableUserCreation: disableUserCreation == "true",
+		DiscordClientID:     discordClientID,
+		DiscordClientSecret: discordClientSecret,
+	})
 
 	addr := fmt.Sprintf(":%d", port)
 	if err := app.Listen(addr); err != nil {
