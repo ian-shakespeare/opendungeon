@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getCellTextureUrl, listCellTextures, type APICellTexture } from "$lib/api.svelte";
+  import { client, getCellTextureUri, type APICellTexture } from "$lib/api";
   import { type BrushTextureTool, type PaintBucketTextureTool } from "$lib/game/level-editor";
   import { onMount } from "svelte";
 
@@ -10,13 +10,13 @@
   let textures = $state<APICellTexture[]>([]);
 
   onMount(() => {
-    listCellTextures().then((res) => {
-      if (!res.ok) {
+    client.GET("/api/cell-textures").then(({ data, error }) => {
+      if (error) {
         console.error("failed to list cell textures");
         return;
       }
 
-      textures = res.textures;
+      textures = data ?? [];
     });
   });
 </script>
@@ -47,7 +47,7 @@
         >
           <img
             alt={`${displayName} cell texture`}
-            src={getCellTextureUrl(key).toString()}
+            src={getCellTextureUri(key)}
             width={128}
             height={64}
             aria-hidden="true"

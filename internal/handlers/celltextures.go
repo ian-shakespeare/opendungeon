@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"image/png"
 	"io"
@@ -9,8 +10,8 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/log"
-	"github.com/opendungeon/opendungeon/internal/database"
 	"github.com/opendungeon/opendungeon/internal/services"
+	"github.com/opendungeon/opendungeon/pkg/models"
 )
 
 const (
@@ -24,8 +25,8 @@ func CreateCellTexture(
 	storage *services.Storage,
 	key, displayName string,
 	content io.Reader,
-) (database.CreateCellTextureRow, error) {
-	var created database.CreateCellTextureRow
+) (models.CellTexture, error) {
+	var created models.CellTexture
 
 	if len(key) < 3 || 64 < len(key) {
 		return created, fiber.NewError(http.StatusBadRequest, "Key must be between 3 and 64 (inclusive) characters in length.")
@@ -48,11 +49,15 @@ func CreateCellTexture(
 		return created, fiber.NewError(http.StatusBadRequest, message)
 	}
 
-	created, err = db.Queries.CreateCellTexture(ctx, database.CreateCellTextureParams{
+	created, err = models.CreateCellTexture(ctx, db.Queries, models.NewCellTexture{
 		Key:         key,
 		DisplayName: displayName,
 	})
 	if err != nil {
+		if errors.Is(err, models.ErrUniqueViolation) {
+			return created, fiber.ErrConflict
+		}
+
 		log.Errorf("failed to create cell texture record: %v", err)
 		return created, fiber.NewError(http.StatusInternalServerError, "Failed to create texture record.")
 	}
@@ -99,15 +104,11 @@ func GetCellTexture(
 func ListCellTextures(
 	ctx context.Context,
 	db *services.DB,
-) ([]database.ListCellTexturesRow, error) {
-	textures, err := db.Queries.ListCellTextures(ctx)
+) ([]models.CellTexture, error) {
+	textures, err := models.ListCellTextures(ctx, db.Queries)
 	if err != nil {
+		log.Errorf("failed to list textures: %v", err)
 		return nil, fiber.NewError(http.StatusInternalServerError, "Failed to list textures.")
-	}
-
-	// set to an empty list so we don't respond with `null`
-	if textures == nil {
-		textures = []database.ListCellTexturesRow{}
 	}
 
 	return textures, nil

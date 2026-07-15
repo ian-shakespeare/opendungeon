@@ -59,15 +59,15 @@ func New(cfg Config) *fiber.App {
 	}
 
 	app.Use(recoverer.New())
-	api := app.Group("/api")
-
 	if cfg.IsDevMode {
-		api.Use(cors.New(cors.Config{
+		app.Use(cors.New(cors.Config{
 			AllowOrigins:     []string{cfg.ClientURL.String()},
-			AllowHeaders:     []string{"*"},
+			AllowHeaders:     []string{"Content-Type"},
 			AllowCredentials: true,
 		}))
 	}
+
+	api := app.Group("/api")
 
 	api.Use(session.New(session.Config{
 		Storage:     memory.New(),
@@ -78,11 +78,16 @@ func New(cfg Config) *fiber.App {
 		return c.SendStatus(http.StatusOK)
 	})
 
-	auth := api.Group("/auth")
-	auth.Post("/register", r.registerUser)
-	auth.Post("/sign-in", r.signIn)
-	auth.Get("/providers", r.listAuthProviders)
-	auth.Get("/providers/discord/callback", r.discordCallback)
+	providers := api.Group("/providers")
+	providers.Get("/", r.listProviders)
+
+	users := api.Group("/users")
+	users.Post("/", r.createUser)
+
+	sessions := api.Group("/sessions")
+	sessions.Post("/email", r.createEmailSession)
+	sessions.Post("/discord", r.createDiscordSession)
+	sessions.Delete("/", r.deleteSession, middlewares.Auth)
 
 	celltextures := api.Group("/cell-textures", middlewares.Auth)
 	celltextures.Post("/", r.createCellTexture)

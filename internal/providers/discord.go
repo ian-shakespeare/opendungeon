@@ -22,8 +22,7 @@ type Discord struct {
 	*oauth2.Config
 }
 
-func NewDiscord(baseRedirectUrl *url.URL, clientID, clientSecret string) Discord {
-	redirectUrl := baseRedirectUrl.JoinPath("api", "auth", "providers", "discord", "callback")
+func NewDiscord(redirectUrl *url.URL, clientID, clientSecret string) Discord {
 	conf := oauth2.Config{
 		ClientID:     clientID,
 		ClientSecret: clientSecret,

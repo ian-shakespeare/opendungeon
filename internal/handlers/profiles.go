@@ -5,41 +5,38 @@ import (
 	"errors"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/log"
 	"github.com/google/uuid"
-	"github.com/opendungeon/opendungeon/internal/database"
 	"github.com/opendungeon/opendungeon/internal/services"
-	"modernc.org/sqlite"
-	sqlite3 "modernc.org/sqlite/lib"
+	"github.com/opendungeon/opendungeon/pkg/models"
 )
 
-type UpsertedProfile struct {
-	Username string  `json:"username"`
-	Avatar   *string `json:"avatar"`
-}
-
-func UpsertProfile(ctx context.Context, db *services.DB, userId uuid.UUID, profile UpsertedProfile) (database.UpsertProfileRow, error) {
-	upserted, err := db.Queries.UpsertProfile(ctx, database.UpsertProfileParams{
-		UserUuid: userId,
-		Username: profile.Username,
-		Avatar:   profile.Avatar,
-	})
+func UpsertProfile(ctx context.Context, db *services.DB, userID uuid.UUID, profile models.NewProfile) (models.Profile, error) {
+	upserted, err := models.UpsertProfile(ctx, db.Queries, userID, profile)
 	if err != nil {
-		sqlErr := new(sqlite.Error)
-		if errors.As(err, &sqlErr) {
-			if sqlErr.Code() == sqlite3.SQLITE_CONSTRAINT_CHECK {
-				return database.UpsertProfileRow{}, fiber.NewError(fiber.StatusBadRequest, "Invalid request.")
-			}
+		if errors.Is(err, models.ErrCheckViolation) {
+			return upserted, fiber.ErrBadRequest
 		}
-		return database.UpsertProfileRow{}, fiber.NewError(fiber.StatusInternalServerError, "Failed to create profile.")
+		if errors.Is(err, models.ErrNotFound) {
+			return upserted, fiber.ErrNotFound
+		}
+
+		log.Errorf("failed to upsert profile: %v", err)
+		return upserted, fiber.NewError(fiber.StatusInternalServerError, "Failed to create profile.")
 	}
 
 	return upserted, err
 }
 
-func GetProfile(ctx context.Context, db *services.DB, userId uuid.UUID) (database.GetProfileRow, error) {
-	profile, err := db.Queries.GetProfile(ctx, userId)
+func GetProfile(ctx context.Context, db *services.DB, userID uuid.UUID) (models.Profile, error) {
+	profile, err := models.GetProfile(ctx, db.Queries, userID)
 	if err != nil {
-		return profile, fiber.NewError(fiber.StatusNotFound, "Profile not found.")
+		if errors.Is(err, models.ErrNotFound) {
+			return profile, fiber.ErrNotFound
+		}
+
+		log.Errorf("failed to get profile: %v", err)
+		return profile, fiber.ErrInternalServerError
 	}
 
 	return profile, nil

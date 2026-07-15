@@ -4,8 +4,8 @@ import (
 	"net/http"
 
 	"github.com/gofiber/fiber/v3"
-	_ "github.com/opendungeon/opendungeon/internal/database"
 	"github.com/opendungeon/opendungeon/internal/handlers"
+	_ "github.com/opendungeon/opendungeon/pkg/models"
 )
 
 // createCellTexture
@@ -15,13 +15,13 @@ import (
 //	@Tags			Cell Textures
 //	@Accept			mpfd
 //	@Produce		json
-//	@Param			key			formData	string							true	"Texture key"
-//	@Param			displayName	formData	string							true	"Texture display name"
-//	@Param			file		formData	file							true	"64x64 image file"
-//	@Success		201			{object}	database.CreateCellTextureRow	"Newly created texture details"
-//	@Failure		400			{string}	string							"Bad request"
-//	@Failure		415			{string}	string							"Unsupported media type"
-//	@Failure		500			{string}	string							"Server error"
+//	@Param			key			formData	string				true	"Texture key"
+//	@Param			displayName	formData	string				true	"Texture display name"
+//	@Param			file		formData	file				true	"64x64 image file"
+//	@Success		201			{object}	models.CellTexture	"Newly created texture details"
+//	@Failure		400			{string}	string				"Bad request"
+//	@Failure		415			{string}	string				"Unsupported media type"
+//	@Failure		500			{string}	string				"Server error"
 //	@Router			/api/cell-textures [post]
 func (r *router) createCellTexture(c fiber.Ctx) error {
 	form, err := c.MultipartForm()
@@ -90,8 +90,8 @@ func (r *router) getCellTexture(c fiber.Ctx) error {
 //	@Description	List all existing cell textures.
 //	@Tags			Cell Textures
 //	@Produce		json
-//	@Success		200	{object}	[]database.ListCellTexturesRow	"List of cell textures"
-//	@Failure		500	{string}	string							"Server error"
+//	@Success		200	{object}	[]models.CellTexture	"List of cell textures"
+//	@Failure		500	{string}	string					"Server error"
 //	@Router			/api/cell-textures [get]
 func (r *router) listCellTextures(c fiber.Ctx) error {
 	textures, err := handlers.ListCellTextures(c, r.db)

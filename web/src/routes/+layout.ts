@@ -1,11 +1,12 @@
-import { auth, getMyProfile, NOT_FOUND, UNAUTHORIZED } from "$lib/api.svelte";
+import { auth } from "$lib/api/state.svelte";
 import { error, redirect } from "@sveltejs/kit";
 import type { LayoutLoad } from "./$types";
+import { client } from "$lib/api";
 
 export const prerender = true;
 export const ssr = false;
 
-const authRoutes = ["/register", "/sign-in"];
+const authRoutes = ["/register", "/sign-in", "/discord/callback"];
 const profileRoutes = ["/me/edit"];
 
 export const load: LayoutLoad = async ({ url }) => {
@@ -18,12 +19,9 @@ export const load: LayoutLoad = async ({ url }) => {
     redirect(303, "/sign-in");
   }
 
-  const res = await getMyProfile();
-  if (!res.ok) {
-    if (res.error.cause === UNAUTHORIZED) {
-      auth.isSignedIn = "no";
-      redirect(303, "/sign-in");
-    } else if (res.error.cause === NOT_FOUND) {
+  const res = await client.GET("/api/profiles/me");
+  if (res.error) {
+    if (res.error === "Not Found") {
       const isProfileRoute = profileRoutes.some((path) => url.pathname.includes(path));
       if (isProfileRoute) {
         return;
@@ -31,8 +29,13 @@ export const load: LayoutLoad = async ({ url }) => {
       redirect(303, "/me/edit");
     }
 
-    error(500, res.error.message);
+    error(500, res.error);
   }
+
+  if (!res.data) {
+    error(500, "Received empty profile.");
+  }
+
   auth.isSignedIn = "yes";
-  auth.profile = res.profile;
+  auth.profile = res.data;
 };

@@ -21,7 +21,7 @@ cyclo:
 
 docs:
 	swag fmt
-	swag init -g $(MAIN) --outputTypes go,yaml
+	swag init --v3.1 -g $(MAIN) --outputTypes go,yaml
 
 lint: cyclo
 	$(LINT) run ./...

@@ -1,14 +1,14 @@
 <script lang="ts">
-  import { upsertMyProfile } from "$lib/api.svelte";
+  import { client } from "$lib/api";
 
   let username = $state("");
 
   async function handleSubmit(event: SubmitEvent) {
     event.preventDefault();
 
-    const res = await upsertMyProfile(username);
-    if (!res.ok) {
-      console.error(res.error.message);
+    const res = await client.PUT("/api/profiles/me", { body: { username } });
+    if (res.error) {
+      console.error(res.error);
     }
   }
 </script>

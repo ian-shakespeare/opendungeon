@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getCellTextureUrl } from "$lib/api.svelte";
+  import { getCellTextureUri } from "$lib/api";
   import GameWindow from "$lib/components/GameWindow.svelte";
   import LevelEditorToolMenu from "$lib/components/LevelEditorToolMenu.svelte";
   import LevelEditor from "$lib/game/level-editor";
@@ -13,7 +13,7 @@
       if (tool.texture && !editor.hasTexture(tool.texture)) {
         editor.pause();
         editor
-          .loadTexture(tool.texture, getCellTextureUrl(tool.texture).toString())
+          .loadTexture(tool.texture, getCellTextureUri(tool.texture))
           .then(() => editor.unpause())
           .catch(() => alert("Failed to load texture. Please reload the page."));
       }

@@ -2,8 +2,8 @@ package router
 
 import (
 	"github.com/gofiber/fiber/v3"
-	_ "github.com/opendungeon/opendungeon/internal/database"
 	"github.com/opendungeon/opendungeon/internal/handlers"
+	"github.com/opendungeon/opendungeon/pkg/models"
 )
 
 // upsertMyProfile
@@ -11,10 +11,10 @@ import (
 //	@Summary		Create or replace user's profile
 //	@Description	Create or replace the profile for the authenticated user.
 //	@Tags			Profiles
-//	@Accept			plain
+//	@Accept			json
 //	@Produce		json
-//	@Param			profile formData	handlers.UpsertedProfile	true	"Profile data"
-//	@Success		201		{object}	database.UpsertProfileRow
+//	@Param			request		body	models.NewProfile	true	"Profile data"
+//	@Success		201		{object}	models.Profile
 //	@Failure		400		{string}	string	"Bad request"
 //	@Failure		401		{string}	string	"Unauthorized"
 //	@Failure		500		{string}	string	"Server error"
@@ -25,8 +25,8 @@ func (r *router) upsertMyProfile(c fiber.Ctx) error {
 		return fiber.ErrUnauthorized
 	}
 
-	var profile handlers.UpsertedProfile
-	if err := c.Bind().Form(&profile); err != nil {
+	var profile models.NewProfile
+	if err := c.Bind().JSON(&profile); err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString("Invalid request body.")
 	}
 
@@ -44,10 +44,10 @@ func (r *router) upsertMyProfile(c fiber.Ctx) error {
 //	@Description	Get the profile for the authenticated user.
 //	@Tags			Profiles
 //	@Produce		json
-//	@Success		200		{object}	database.GetProfileRow
-//	@Failure		401		{string}	string	"Unauthorized"
-//	@Failure		404		{string}	string	"Not found"
-//	@Failure		500		{string}	string	"Server error"
+//	@Success		200	{object}	models.Profile
+//	@Failure		401	{string}	string	"Unauthorized"
+//	@Failure		404	{string}	string	"Not found"
+//	@Failure		500	{string}	string	"Server error"
 //	@Router			/api/profiles/me [get]
 func (r router) getMyProfile(c fiber.Ctx) error {
 	userId, ok := getUserId(c)

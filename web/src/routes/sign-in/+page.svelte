@@ -1,7 +1,8 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
-  import { signIn } from "$lib/api.svelte";
+  import { client } from "$lib/api";
+  import { auth } from "$lib/api/state.svelte";
   import type { PageProps } from "./$types";
 
   let { data }: PageProps = $props();
@@ -12,14 +13,15 @@
   async function handleSubmit(event: SubmitEvent) {
     event.preventDefault();
 
-    const res = await signIn(email, password);
-    if (res.ok) {
+    const res = await client.POST("/api/sessions/email", { body: { email, password } });
+    if (!res.error) {
+      auth.isSignedIn = "yes";
       await goto(resolve("/dashboard"));
       return;
     }
 
     // TODO: toast or something
-    console.error(res.error.message);
+    console.error(res.error);
   }
 </script>
 

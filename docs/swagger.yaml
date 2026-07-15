@@ -1,253 +1,209 @@
-definitions:
-  database.CreateCellTextureRow:
-    properties:
-      createdAt:
-        type: integer
-      displayName:
-        type: string
-      key:
-        type: string
-      updatedAt:
-        type: integer
-    type: object
-  database.ListCellTexturesRow:
-    properties:
-      createdAt:
-        type: integer
-      displayName:
-        type: string
-      key:
-        type: string
-      updatedAt:
-        type: integer
-    type: object
-  database.UpsertProfileRow:
-    properties:
-      avatar:
-        type: string
-      createdAt:
-        type: integer
-      updatedAt:
-        type: integer
-      username:
-        type: string
-    type: object
-  grid.Cell:
-    properties:
-      q:
-        type: integer
-      r:
-        type: integer
-      weight:
-        description: 0 = non-traversable
-        type: integer
-    type: object
-  grid.SerializedGrid:
-    properties:
-      grid:
-        properties:
-          cells:
-            items:
-              $ref: '#/definitions/grid.Cell'
-            type: array
-        type: object
-      version:
-        type: integer
-    type: object
-  handlers.AuthProvider:
-    properties:
-      authUrl:
-        type: string
-      name:
-        type: string
-    type: object
-  handlers.UpsertedProfile:
-    properties:
-      avatar:
-        type: string
-      username:
-        type: string
-    type: object
-  services.FileMetadata:
-    properties:
-      contentType:
-        type: string
-      createdAt:
-        type: string
-      key:
-        type: string
-      size:
-        type: integer
-    type: object
+components:
+  schemas:
+    models.CellTexture:
+      properties:
+        createdAt:
+          example: 1700000000
+          type: integer
+        displayName:
+          example: Tundra Grass
+          maxLength: 64
+          minLength: 2
+          type: string
+        key:
+          example: tundra.grass
+          maxLength: 64
+          minLength: 2
+          type: string
+        updatedAt:
+          example: 1700000000
+          type: integer
+      required:
+      - createdAt
+      - displayName
+      - key
+      - updatedAt
+      type: object
+    models.NewDiscordSession:
+      properties:
+        authCode:
+          type: string
+      required:
+      - authCode
+      type: object
+    models.NewEmailSession:
+      properties:
+        email:
+          example: john.doe@email.com
+          maxLength: 255
+          minLength: 5
+          type: string
+        password:
+          minLength: 8
+          type: string
+      required:
+      - email
+      type: object
+    models.NewProfile:
+      properties:
+        avatarUri:
+          example: http://cdn.discord.com/some-image-id
+          maxLength: 1024
+          type: string
+        username:
+          example: Krusher99
+          maxLength: 64
+          minLength: 2
+          type: string
+      required:
+      - username
+      type: object
+    models.NewUser:
+      properties:
+        email:
+          example: john.doe@email.com
+          maxLength: 255
+          minLength: 5
+          type: string
+      required:
+      - email
+      type: object
+    models.Profile:
+      properties:
+        avatarUri:
+          example: http://cdn.discord.com/some-image-id
+          maxLength: 1024
+          type: string
+        createdAt:
+          example: 1700000000
+          type: integer
+        updatedAt:
+          example: 1700000000
+          type: integer
+        userId:
+          example: 00000000-0000-0000-0000-000000000000
+          maxLength: 36
+          minLength: 36
+          type: string
+        username:
+          example: Krusher99
+          maxLength: 64
+          minLength: 2
+          type: string
+      required:
+      - createdAt
+      - updatedAt
+      - userId
+      - username
+      type: object
+    models.Provider:
+      properties:
+        authUrl:
+          type: string
+        name:
+          example: Discord
+          type: string
+      required:
+      - authUrl
+      - name
+      type: object
+    models.User:
+      properties:
+        email:
+          example: john.doe@email.com
+          maxLength: 255
+          minLength: 5
+          type: string
+        id:
+          example: 00000000-0000-0000-0000-000000000000
+          maxLength: 36
+          minLength: 36
+          type: string
+        isAdmin:
+          default: false
+          type: boolean
+      required:
+      - email
+      - id
+      - isAdmin
+      type: object
+  securitySchemes:
+    BearerAuth:
+      scheme: bearer
+      type: http
+externalDocs:
+  description: ""
+  url: ""
 info:
-  contact: {}
   description: Web API for OpenDungeon
   title: OpenDungeon API
   version: 1.0.0
+openapi: 3.1.0
 paths:
-  /api/auth/providers:
-    get:
-      description: List all available auth providers.
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Available auth providers
-          schema:
-            items:
-              $ref: '#/definitions/handlers.AuthProvider'
-            type: array
-        "500":
-          description: Server error
-          schema:
-            type: string
-      summary: List auth providers
-      tags:
-      - Auth
-  /api/auth/providers/discord/callback:
-    get:
-      description: Convert Discord auth code into a user and identity.
-      parameters:
-      - description: Auth code
-        in: query
-        name: code
-        required: true
-        type: string
-      - description: State
-        in: query
-        name: state
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "303":
-          description: See Other
-        "500":
-          description: Server error
-          schema:
-            type: string
-      summary: Discord callback
-      tags:
-      - Auth
-  /api/auth/register:
-    post:
-      consumes:
-      - text/plain
-      description: Register a new user with email and password.
-      parameters:
-      - description: Email
-        in: formData
-        name: email
-        required: true
-        type: string
-      - description: Password
-        in: formData
-        name: password
-        required: true
-        type: string
-      responses:
-        "201":
-          description: Session id cookie
-        "400":
-          description: Bad request
-          schema:
-            type: string
-        "500":
-          description: Server error
-          schema:
-            type: string
-      summary: Register a new user
-      tags:
-      - Auth
-  /api/auth/sign-in:
-    post:
-      consumes:
-      - text/plain
-      description: Sign in a user with email and password.
-      parameters:
-      - description: Email
-        in: formData
-        name: email
-        required: true
-        type: string
-      - description: Password
-        in: formData
-        name: password
-        required: true
-        type: string
-      responses:
-        "201":
-          description: Session id cookie
-        "400":
-          description: Bad request
-          schema:
-            type: string
-        "500":
-          description: Server error
-          schema:
-            type: string
-      summary: Sign in a user
-      tags:
-      - Auth
   /api/cell-textures:
     get:
       description: List all existing cell textures.
-      produces:
-      - application/json
       responses:
         "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/models.CellTexture'
+                type: array
           description: List of cell textures
-          schema:
-            items:
-              $ref: '#/definitions/database.ListCellTexturesRow'
-            type: array
         "500":
+          content:
+            application/json:
+              schema:
+                type: string
           description: Server error
-          schema:
-            type: string
       summary: List cell textures
       tags:
       - Cell Textures
     post:
-      consumes:
-      - multipart/form-data
       description: Create a new cell texture.
-      parameters:
-      - description: Texture key
-        in: formData
-        name: key
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              oneOf:
+              - title: key
+                type: string
+              - title: displayName
+                type: string
+              - title: file
+                type: file
+          multipart/form-data:
+            schema:
+              type: object
+        description: Texture key | Texture display name | 64x64 image file
         required: true
-        type: string
-      - description: Texture display name
-        in: formData
-        name: displayName
-        required: true
-        type: string
-      - description: 64x64 image file
-        in: formData
-        name: file
-        required: true
-        type: file
-      produces:
-      - application/json
       responses:
         "201":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/models.CellTexture'
           description: Newly created texture details
-          schema:
-            $ref: '#/definitions/database.CreateCellTextureRow'
         "400":
+          content:
+            application/json:
+              schema:
+                type: string
           description: Bad request
-          schema:
-            type: string
         "415":
+          content:
+            application/json:
+              schema:
+                type: string
           description: Unsupported media type
-          schema:
-            type: string
         "500":
+          content:
+            application/json:
+              schema:
+                type: string
           description: Server error
-          schema:
-            type: string
       summary: Create cell texture
       tags:
       - Cell Textures
@@ -259,150 +215,245 @@ paths:
         in: path
         name: key
         required: true
-        type: string
-      produces:
-      - image/png
+        schema:
+          type: string
       responses:
         "200":
+          content:
+            image/png:
+              schema:
+                type: file
           description: Texture content
-          schema:
-            type: file
         "400":
+          content:
+            image/png:
+              schema:
+                type: string
           description: Bad request
-          schema:
-            type: string
         "404":
+          content:
+            image/png:
+              schema:
+                type: string
           description: Not found
-          schema:
-            type: string
         "500":
+          content:
+            image/png:
+              schema:
+                type: string
           description: Server error
-          schema:
-            type: string
       summary: Get cell texture
       tags:
       - Cell Textures
-  /api/levels:
-    post:
-      consumes:
-      - application/json
-      description: Create a new level.
-      parameters:
-      - description: Level details
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/grid.SerializedGrid'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Newly created level file
-          schema:
-            $ref: '#/definitions/services.FileMetadata'
-        "400":
-          description: Bad request
-          schema:
-            type: string
-        "500":
-          description: Server error
-          schema:
-            type: string
-      summary: Create level
-      tags:
-      - Level
-  /api/levels/{levelId}:
-    delete:
-      description: Delete level file.
-      parameters:
-      - description: Level ID
-        in: path
-        name: levelId
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "204":
-          description: Level deleted successfully
-        "400":
-          description: Bad request
-          schema:
-            type: string
-        "404":
-          description: Level not found
-          schema:
-            type: string
-        "500":
-          description: Server error
-          schema:
-            type: string
-      summary: Delete level
-      tags:
-      - Level
+  /api/profiles/me:
     get:
-      description: Get level file.
-      parameters:
-      - description: Level ID
-        in: path
-        name: levelId
-        required: true
-        type: string
-      produces:
-      - application/json
+      description: Get the profile for the authenticated user.
       responses:
         "200":
-          description: Level file
-          schema:
-            $ref: '#/definitions/grid.SerializedGrid'
-        "400":
-          description: Bad request
-          schema:
-            type: string
-        "404":
-          description: Level not found
-          schema:
-            type: string
-        "500":
-          description: Server error
-          schema:
-            type: string
-      summary: Get level
-      tags:
-      - Level
-  /api/profiles/me:
-    put:
-      consumes:
-      - application/json
-      description: Create or replace the profile for the authenticated user.
-      parameters:
-      - description: Profile data
-        in: body
-        name: profile
-        required: true
-        schema:
-          $ref: '#/definitions/handlers.UpsertedProfile'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/database.UpsertProfileRow'
-        "400":
-          description: Bad request
-          schema:
-            type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/models.Profile'
+          description: OK
         "401":
+          content:
+            application/json:
+              schema:
+                type: string
           description: Unauthorized
-          schema:
-            type: string
+        "404":
+          content:
+            application/json:
+              schema:
+                type: string
+          description: Not found
         "500":
+          content:
+            application/json:
+              schema:
+                type: string
           description: Server error
-          schema:
-            type: string
-      summary: Create or replace profile
+      summary: Get user's profile
       tags:
       - Profiles
-swagger: "2.0"
+    put:
+      description: Create or replace the profile for the authenticated user.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              oneOf:
+              - type: object
+              - $ref: '#/components/schemas/models.NewProfile'
+                description: Profile data
+                summary: request
+        description: Profile data
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/models.Profile'
+          description: Created
+        "400":
+          content:
+            application/json:
+              schema:
+                type: string
+          description: Bad request
+        "401":
+          content:
+            application/json:
+              schema:
+                type: string
+          description: Unauthorized
+        "500":
+          content:
+            application/json:
+              schema:
+                type: string
+          description: Server error
+      summary: Create or replace user's profile
+      tags:
+      - Profiles
+  /api/providers:
+    get:
+      description: List available auth providers.
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/models.Provider'
+                type: array
+          description: Available auth providers
+        "500":
+          content:
+            application/json:
+              schema:
+                type: string
+          description: Server error
+      summary: List providers
+      tags:
+      - Providers
+  /api/sessions:
+    delete:
+      description: Delete the active session.
+      responses:
+        "204":
+          description: No Content
+        "401":
+          content:
+            application/json:
+              schema:
+                type: string
+          description: Unauthorized
+      summary: Delete session
+      tags:
+      - Sessions
+  /api/sessions/discord:
+    post:
+      description: |-
+        Create a new session using Discord authentication.
+        If a user with the associated email does not exist, it is created.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              oneOf:
+              - type: object
+              - $ref: '#/components/schemas/models.NewDiscordSession'
+                description: Discord credentials
+                summary: request
+        description: Discord credentials
+        required: true
+      responses:
+        "201":
+          description: Session id cookie
+        "400":
+          content:
+            application/json:
+              schema:
+                type: string
+          description: Bad request
+        "500":
+          content:
+            application/json:
+              schema:
+                type: string
+          description: Server error
+      summary: Create session with Discord
+      tags:
+      - Sessions
+  /api/sessions/email:
+    post:
+      description: Create a new session using email authentication.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              oneOf:
+              - type: object
+              - $ref: '#/components/schemas/models.NewEmailSession'
+                description: Email credentials
+                summary: request
+        description: Email credentials
+        required: true
+      responses:
+        "201":
+          description: Session id cookie
+        "400":
+          content:
+            application/json:
+              schema:
+                type: string
+          description: Bad request
+        "500":
+          content:
+            application/json:
+              schema:
+                type: string
+          description: Server error
+      summary: Create session with email
+      tags:
+      - Sessions
+  /api/users:
+    post:
+      description: Create a new user.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              oneOf:
+              - type: object
+              - $ref: '#/components/schemas/models.NewUser'
+                description: New user information
+                summary: request
+        description: New user information
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/models.User'
+          description: Created
+        "409":
+          content:
+            application/json:
+              schema:
+                type: string
+          description: Conflict
+        "500":
+          content:
+            application/json:
+              schema:
+                type: string
+          description: Server error
+      summary: Create user
+      tags:
+      - Users
+servers:
+- url: http://localhost:8000/api

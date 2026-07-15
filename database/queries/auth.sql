@@ -2,11 +2,13 @@
 insert into users (email, uuid) 
 values (lower(sqlc.arg(email)), sqlc.arg(uuid))
 returning uuid,
-  email;
+  email,
+  is_admin;
 
 -- name: GetUserByEmail :one
 select uuid,
-  email
+  email,
+  is_admin
 from users
 where email = lower(sqlc.arg(email));
 
@@ -25,6 +27,17 @@ returning
   (select name from providers p where p.provider_id = provider_id) as provider,
   provider_uid,
   password_digest;
+
+-- name: ListIdentities :many
+select
+  u.uuid as user_uuid,
+  p.name as provider,
+  i.provider_uid,
+  i.password_digest
+from identities i
+join users u on u.user_id = i.user_id
+join providers p on p.provider_id = i.provider_id
+where u.email = lower(sqlc.arg(email));
 
 -- name: GetIdentityByEmail :one
 select 

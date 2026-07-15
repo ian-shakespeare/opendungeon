@@ -2,22 +2,17 @@ package handlers
 
 import (
 	"context"
-	"crypto/rand"
 	"database/sql"
-	"encoding/hex"
-	"net/url"
-
 	"errors"
+	"net/url"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/log"
 	"github.com/google/uuid"
-	"github.com/opendungeon/opendungeon/internal/database"
 	"github.com/opendungeon/opendungeon/internal/providers"
 	"github.com/opendungeon/opendungeon/internal/services"
+	"github.com/opendungeon/opendungeon/pkg/models"
 	"golang.org/x/crypto/bcrypt"
-	"modernc.org/sqlite"
-	sqlite3 "modernc.org/sqlite/lib"
 )
 
 func RegisterUser(ctx context.Context, disableUserCreation bool, db *services.DB, email string, password string) (uuid.UUID, error) {
@@ -31,40 +26,34 @@ func RegisterUser(ctx context.Context, disableUserCreation bool, db *services.DB
 	}
 	passwordDigest := string(bytes)
 
-	user, err := db.Queries.CreateUser(ctx, database.CreateUserParams{
+	user, err := models.CreateUser(ctx, db.Queries, models.NewUser{
 		Email: email,
-		Uuid:  uuid.New(),
 	})
 	if err != nil {
-		sqlErr := new(sqlite.Error)
-		if errors.As(err, &sqlErr) {
-			if sqlErr.Code() == sqlite3.SQLITE_CONSTRAINT_CHECK {
-				return uuid.Nil, fiber.NewError(fiber.StatusBadRequest, "Invalid request.")
-			}
-			if sqlErr.Code() == sqlite3.SQLITE_CONSTRAINT_UNIQUE {
-				return uuid.Nil, fiber.NewError(fiber.StatusConflict, "Email already exists.")
-			}
+		if errors.Is(err, models.ErrCheckViolation) {
+			return uuid.Nil, fiber.ErrBadRequest
 		}
-		return uuid.Nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to create user.")
+		if errors.Is(err, models.ErrUniqueViolation) {
+			return uuid.Nil, fiber.ErrConflict
+		}
+
+		log.Errorf("failed to create user: %v", err)
+		return uuid.Nil, fiber.ErrInternalServerError
 	}
 
-	_, err = db.Queries.CreateIdentity(ctx, database.CreateIdentityParams{
+	_, err = models.CreateIdentity(ctx, db.Queries, user.ID, models.NewIdentity{
 		Provider:       "email",
-		UserUuid:       user.Uuid,
 		PasswordDigest: &passwordDigest,
 	})
 	if err != nil {
 		return uuid.Nil, fiber.NewError(fiber.StatusInternalServerError, "Failed to create identity.")
 	}
 
-	return user.Uuid, nil
+	return user.ID, nil
 }
 
 func SignIn(ctx context.Context, db *services.DB, email string, password string) (uuid.UUID, error) {
-	identity, err := db.Queries.GetIdentityByEmail(ctx, database.GetIdentityByEmailParams{
-		Email:    email,
-		Provider: "email",
-	})
+	identity, err := models.GetIdentity(ctx, db.Queries, email, "email")
 	if err != nil {
 		return uuid.Nil, fiber.NewError(fiber.StatusNotFound, "Failed to find identity.")
 	}
@@ -73,38 +62,7 @@ func SignIn(ctx context.Context, db *services.DB, email string, password string)
 		return uuid.Nil, fiber.NewError(fiber.StatusNotFound, "Failed to find identity.")
 	}
 
-	return identity.UserUuid, nil
-}
-
-type AuthProvider struct {
-	Name    string `json:"name"`
-	AuthURL string `json:"authUrl"`
-}
-
-type AuthProviders struct {
-	State     string
-	Providers []AuthProvider
-}
-
-func ListAuthProviders(ctx context.Context, baseUrl *url.URL, discordClientID, discordClientSecret string) (AuthProviders, error) {
-	var ap AuthProviders
-
-	b := make([]byte, 16)
-	if _, err := rand.Read(b); err != nil {
-		log.Errorf("failed to generate state: %v", err)
-		return ap, fiber.NewError(fiber.StatusInternalServerError, "Failed to generate state.")
-	}
-	ap.State = hex.EncodeToString(b)
-
-	if discordClientID != "" && discordClientSecret != "" {
-		discord := providers.NewDiscord(baseUrl, discordClientID, discordClientSecret)
-		ap.Providers = append(ap.Providers, AuthProvider{
-			Name:    "Discord",
-			AuthURL: discord.AuthUrl(ap.State),
-		})
-	}
-
-	return ap, nil
+	return identity.UserID, nil
 }
 
 type CallbackRedirect struct {
@@ -137,18 +95,15 @@ func DiscordCallback(
 	}
 
 	// HANDLE EXISTING DISCORD IDENTITY
-	identity, err := db.Queries.GetIdentityByEmail(ctx, database.GetIdentityByEmailParams{
-		Email:    discordUser.Email,
-		Provider: "discord",
-	})
+	identity, err := models.GetIdentity(ctx, db.Queries, discordUser.Email, "discord")
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		log.Errorf("failed to retrieve identity from database: %v", err)
+		log.Errorf("failed to retrieve identity: %v", err)
 		return cr, fiber.NewError(fiber.StatusInternalServerError, "Failed to retrieve identity.")
 	}
 
 	identityExists := identity.ProviderUid != nil && *identity.ProviderUid == discordUser.ID
 	if identityExists {
-		cr.UserID = identity.UserUuid
+		cr.UserID = identity.UserID
 		cr.Redirect = clientUrl // redirect to home page '/'
 		return cr, nil
 	}
@@ -156,14 +111,13 @@ func DiscordCallback(
 	// HANDLE EXISTING USER
 	existingUser, err := db.Queries.GetUserByEmail(ctx, discordUser.Email)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		log.Errorf("failed to retrieve existing user from database: %v", err)
+		log.Errorf("failed to retrieve existing user: %v", err)
 		return cr, fiber.NewError(fiber.StatusInternalServerError, "Failed to retrieve user.")
 	}
 
 	userExists := existingUser.Email == discordUser.Email
 	if userExists {
-		_, err = db.Queries.CreateIdentity(ctx, database.CreateIdentityParams{
-			UserUuid:    existingUser.Uuid,
+		_, err = models.CreateIdentity(ctx, db.Queries, existingUser.Uuid, models.NewIdentity{
 			Provider:    "discord",
 			ProviderUid: &discordUser.ID,
 		})
@@ -182,10 +136,7 @@ func DiscordCallback(
 		return cr, fiber.NewError(fiber.StatusForbidden, "User creation is disabled.")
 	}
 
-	user, err := db.Queries.CreateUser(ctx, database.CreateUserParams{
-		Uuid:  uuid.New(),
-		Email: discordUser.Email,
-	})
+	user, err := models.CreateUser(ctx, db.Queries, models.NewUser{Email: discordUser.Email})
 	if err != nil {
 		// no reason to check for database errors here, since the email MUST be unique as
 		// we already checked if it exists, AND it must be valid since it came from discord
@@ -193,8 +144,7 @@ func DiscordCallback(
 		return cr, fiber.NewError(fiber.StatusInternalServerError, "Failed to create user.")
 	}
 
-	_, err = db.Queries.CreateIdentity(ctx, database.CreateIdentityParams{
-		UserUuid:    user.Uuid,
+	_, err = models.CreateIdentity(ctx, db.Queries, existingUser.Uuid, models.NewIdentity{
 		Provider:    "discord",
 		ProviderUid: &discordUser.ID,
 	})
@@ -203,16 +153,15 @@ func DiscordCallback(
 		return cr, fiber.NewError(fiber.StatusInternalServerError, "Failed to create identity.")
 	}
 
-	_, err = db.Queries.UpsertProfile(ctx, database.UpsertProfileParams{
-		UserUuid: user.Uuid,
-		Username: discordUser.Username,
-		Avatar:   discordUser.AvatarUri,
+	_, err = models.UpsertProfile(ctx, db.Queries, user.ID, models.NewProfile{
+		Username:  discordUser.Username,
+		AvatarURI: discordUser.AvatarUri,
 	})
 	if err != nil {
 		log.Warn("failed to create profile for discord user: %v", err)
 	}
 
-	cr.UserID = user.Uuid
+	cr.UserID = user.ID
 	cr.Redirect = clientUrl.JoinPath("/profiles/me/edit")
 	return cr, nil
 }

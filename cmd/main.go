@@ -78,6 +78,8 @@ func checkDirPermission(path string) error {
 
 //	@servers.url	http://localhost:8000
 
+//	@BasePath	/api
+
 //	@securityDefinitions.bearerauth	BearerAuth
 
 func main() {

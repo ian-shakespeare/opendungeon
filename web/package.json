@@ -41,6 +41,7 @@
     "vitest-browser-svelte": "^2.1.1"
   },
   "dependencies": {
-    "gl-matrix": "^3.4.4"
+    "gl-matrix": "^3.4.4",
+    "openapi-fetch": "^0.17.0"
   }
 }
