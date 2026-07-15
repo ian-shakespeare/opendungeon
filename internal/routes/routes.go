@@ -10,19 +10,15 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/cors"
 	recoverer "github.com/gofiber/fiber/v3/middleware/recover"
 	"github.com/gofiber/fiber/v3/middleware/session"
+	"github.com/gofiber/fiber/v3/middleware/static"
 	"github.com/gofiber/storage/memory/v2"
 	"github.com/google/uuid"
 	"github.com/opendungeon/opendungeon/internal/services"
 )
 
-func Register(r fiber.Router, isDevMode bool) {
+func Register(r fiber.Router, isDevMode bool, staticDir string) {
 	api := r.Group("/api")
 	api.Use(recoverer.New())
-
-	api.Use(session.New(session.Config{
-		Storage:     memory.New(),
-		IdleTimeout: 14 * 24 * time.Hour,
-	}))
 
 	if isDevMode {
 		api.Use(cors.New(cors.Config{
@@ -31,6 +27,15 @@ func Register(r fiber.Router, isDevMode bool) {
 			AllowCredentials: true,
 		}))
 	}
+
+	api.Use(session.New(session.Config{
+		Storage:     memory.New(),
+		IdleTimeout: 14 * 24 * time.Hour,
+	}))
+
+	api.Get("/health", func(c fiber.Ctx) error {
+		return c.SendStatus(http.StatusOK)
+	})
 
 	levels := api.Group("/levels")
 	levels.Post("/", createLevel)
@@ -51,6 +56,15 @@ func Register(r fiber.Router, isDevMode bool) {
 	profiles := api.Group("/profiles", requireAuth)
 	profiles.Put("/me", upsertMyProfile)
 	profiles.Get("/me", getMyProfile)
+
+	// LAST
+	if !isDevMode {
+		r.Get("/*", static.New(staticDir, static.Config{
+			Browse:        true,
+			MaxAge:        3600,
+			CacheDuration: 7 * 24 * time.Hour,
+		}))
+	}
 }
 
 func getDBService(c fiber.Ctx) (*services.DB, error) {

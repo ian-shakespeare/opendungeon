@@ -20,6 +20,12 @@ export default defineConfig({
         precompress: false,
         strict: true,
       }),
+      prerender: {
+        handleHttpError: ({ path, message }) => {
+          console.warn(`Failed to prerender page: ${path}, message: ${message}`);
+          return "warn";
+        },
+      },
     }),
   ],
   test: {
