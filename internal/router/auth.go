@@ -74,6 +74,22 @@ func (r *router) signIn(c fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusCreated)
 }
 
+// signOut
+//
+//	@Summary		Sign out a user
+//	@Description	Sign out a user.
+//	@Tags			Auth
+//	@Accept			plain
+//	@Success		204
+//	@Failure		400			{string}	string	"Bad request"
+//	@Failure		500			{string}	string	"Server error"
+//	@Router			/api/auth/sign-in [post]
+func (r *router) signOut(c fiber.Ctx) error {
+	sess := session.FromContext(c)
+	sess.Delete("user_id")
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
 // listAuthProviders
 //
 //	@Summary		List auth providers

@@ -1,8 +1,16 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
-  import { signIn } from "$lib/api.svelte";
+  import { signIn, type APIAuthProvider } from "$lib/api.svelte";
+  import StyledButton from "$lib/components/StyledButton.svelte";
+  import StyledCard from "$lib/components/StyledCard.svelte";
   import type { PageProps } from "./$types";
+  import discordLogo from "$lib/assets/discord-logo.svg";
+  import StyledInput from "$lib/components/StyledInput.svelte";
+  import StyledAnchor from "$lib/components/StyledAnchor.svelte";
+  import { addToast } from "$lib/components/Toaster.svelte";
+  import StyledMain from "$lib/components/StyledMain.svelte";
+  import StyledSeparator from "$lib/components/StyledSeparator.svelte";
 
   let { data }: PageProps = $props();
 
@@ -18,8 +26,13 @@
       return;
     }
 
-    // TODO: toast or something
-    console.error(res.error.message);
+    addToast({
+      data: { title: "Sign In Failed", description: res.error.message, level: "success" },
+    });
+  }
+
+  function isDiscord(provider: APIAuthProvider): boolean {
+    return provider.name.toLowerCase() === "discord";
   }
 </script>
 
@@ -27,20 +40,35 @@
   <title>Sign In - OpenDungeon</title>
 </svelte:head>
 
-<h1>Sign In</h1>
-<ul>
-  {#each data.providers as provider, i (i)}
-    <li><a rel="external" href={provider.authUrl}>{provider.name}</a></li>
-  {/each}
-</ul>
-<form onsubmit={handleSubmit} class="grid">
-  <label>
-    Email
-    <input bind:value={email} type="email" />
-  </label>
-  <label>
-    Password
-    <input bind:value={password} type="password" />
-  </label>
-  <input type="submit" value="Sign In" class="cursor-pointer" />
-</form>
+<StyledMain>
+  <StyledCard class="px-4 py-6 max-w-96 w-full">
+    <ul>
+      {#each data.providers as provider, i (i)}
+        <li>
+          <StyledAnchor
+            mode="none"
+            rel="external"
+            href={provider.authUrl}
+            label={"Sign in with " + provider.name}
+            icon={!isDiscord(provider) ? undefined : discordLogo}
+            class={!isDiscord(provider)
+              ? ""
+              : "bg-discord-blurple duration-300 hover:bg-white hover:text-discord-blurple"}
+          />
+        </li>
+      {/each}
+    </ul>
+    <StyledSeparator class="my-6" />
+    <form onsubmit={handleSubmit} class="grid gap-4 mb-2">
+      <div class="grid gap-2">
+        <StyledInput bind:value={email} type="email" placeholder="Email" />
+        <StyledInput bind:value={password} type="password" placeholder="Password" />
+      </div>
+      <StyledButton label="Sign In" />
+    </form>
+    <p class="text-aurora-gray-700 text-center">
+      Don't have an account?
+      <a href={resolve("/register")} class="text-aurora-magenta-300 underline"> Register here. </a>
+    </p>
+  </StyledCard>
+</StyledMain>

@@ -83,6 +83,7 @@ func New(cfg Config) *fiber.App {
 	auth.Post("/sign-in", r.signIn)
 	auth.Get("/providers", r.listAuthProviders)
 	auth.Get("/providers/discord/callback", r.discordCallback)
+	auth.Post("/sign-out", r.signOut)
 
 	celltextures := api.Group("/cell-textures", middlewares.Auth)
 	celltextures.Post("/", r.createCellTexture)

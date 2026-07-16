@@ -3,6 +3,12 @@
 html,
 body {
   height: 100%;
+  background-color: var(--color-aurora-gray-1400);
+}
+
+body {
+  position: relative;
+  color: white;
 }
 
 @theme {
@@ -20,4 +26,21 @@ body {
   --color-aurora-gray-1200: #333333;
   --color-aurora-gray-1300: #222222;
   --color-aurora-gray-1400: #111111;
+
+  --color-aurora-magenta-100: #e673ff;
+  --color-aurora-magenta-200: #ff52ff;
+  --color-aurora-magenta-300: #da20e0;
+  --color-aurora-magenta-400: #bd29ff;
+  --color-aurora-magenta-500: #bd10c5;
+  --color-aurora-magenta-600: #8c14be;
+  --color-aurora-magenta-700: #5a187b;
+  --color-aurora-magenta-800: #641464;
+  --color-aurora-magenta-900: #410062;
+  --color-aurora-magenta-1000: #320a46;
+
+  --color-danger: #ff0000;
+  --color-warn: #ffa53c;
+  --color-success: #0ad70a;
+
+  --color-discord-blurple: #5865f2;
 }

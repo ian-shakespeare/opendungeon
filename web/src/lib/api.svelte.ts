@@ -74,9 +74,13 @@ export async function signIn(
   return res;
 }
 
-export function signOut() {
-  auth.isSignedIn = "no";
-  auth.profile = null;
+export async function signOut(): Promise<{ ok: true } | { ok: false; error: Error }> {
+  const res = await makeRequest("POST", "/auth/sign-out", null);
+  if (!res.ok) {
+    return res;
+  }
+
+  return { ok: true };
 }
 
 export async function upsertMyProfile(
@@ -144,6 +148,11 @@ export async function createLevel(
   }>,
 ): Promise<{ ok: true; level: APILevel } | { ok: false; error: Error }> {
   const shrunkGrid = grid.shrink((value) => value.weight === 0 && value.texture === null);
+  if (shrunkGrid.isEmpty) {
+    // TODO: actually verify this is empty (i.e. loop through cells)
+    return { ok: false, error: new Error("Level may not be empty.") };
+  }
+
   const body = JSON.stringify({
     name,
     level: {
@@ -151,7 +160,7 @@ export async function createLevel(
       grid: { cells: shrunkGrid.toObject() },
     },
   });
-  console.log(body);
+
   const res = await makeRequest("POST", "/levels", body);
   if (!res.ok) {
     return res;
@@ -159,6 +168,18 @@ export async function createLevel(
 
   const level: APILevel = await res.data.json();
   return { ok: true, level };
+}
+
+export async function listLevels(): Promise<
+  { ok: true; levels: APILevel[] } | { ok: false; error: Error }
+> {
+  const res = await makeRequest("GET", "/levels", null);
+  if (!res.ok) {
+    return res;
+  }
+
+  const levels: APILevel[] = await res.data.json();
+  return { ok: true, levels };
 }
 
 async function makeRequest(

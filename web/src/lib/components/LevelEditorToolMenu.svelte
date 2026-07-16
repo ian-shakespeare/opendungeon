@@ -3,6 +3,8 @@
   import BrushToolOptionMenu from "$lib/components/BrushToolOptionMenu.svelte";
   import PaintBucketToolOptionMenu from "$lib/components/PaintBucketToolOptionMenu.svelte";
   import TextureSelectionMenu from "$lib/components/TextureSelectionMenu.svelte";
+  import StyledCard from "./StyledCard.svelte";
+  import StyledButton from "./StyledButton.svelte";
 
   let { tool = $bindable(DEFAULT_TOOL), viewMode = $bindable(DEFAULT_VIEW_MODE) } = $props();
 
@@ -22,29 +24,23 @@
       selected: tool.type === "measure",
       tool: { type: "measure", start: null },
     },
-  ]);
+  ] as const);
 </script>
 
-<div class="grid grid-cols-2 p-6 w-screen h-full">
+<div class="grid grid-cols-2 px-6 pt-2 pb-4 w-screen h-full">
   <aside class="z-10 relative justify-self-start pointer-events-none">
-    <ul
-      class="grid gap-2 text-white w-3xs bg-aurora-gray-1200 rounded px-4 py-3 pointer-events-auto"
-    >
+    <StyledCard class="w-3xs px-4 py-3 pointer-events-auto grid gap-2">
       {#each toolButtons as toolButton, i (i)}
-        <li class="grid">
-          <button
-            data-selected={toolButton.selected}
-            onclick={() => {
-              viewMode = "texture";
-              tool = toolButton.tool as LevelEditorTool;
-            }}
-            class="border-2 border-aurora-gray-1200 px-4 py-3 bg-aurora-gray-1100 cursor-pointer rounded data-[selected=true]:border-aurora-gray-400 data-[selected=true]:bg-aurora-gray-900"
-          >
-            {toolButton.label}
-          </button>
-        </li>
+        <StyledButton
+          mode={toolButton.selected ? "primary" : "secondary"}
+          label={toolButton.label}
+          onclick={() => {
+            viewMode = "texture";
+            tool = toolButton.tool;
+          }}
+        />
       {/each}
-    </ul>
+    </StyledCard>
   </aside>
   <aside class="z-10 relative justify-self-end pointer-events-none">
     {#if tool.type === "texturebrush" || tool.type === "weightbrush"}
