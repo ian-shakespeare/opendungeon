@@ -106,8 +106,7 @@ definitions:
 info:
   contact: {}
   description: Web API for OpenDungeon
-  title: OpenDungeon API
-  version: 1.0.0
+  title: OpenDungeon
 paths:
   /api/auth/providers:
     get:
@@ -188,21 +187,10 @@ paths:
     post:
       consumes:
       - text/plain
-      description: Sign in a user with email and password.
-      parameters:
-      - description: Email
-        in: formData
-        name: email
-        required: true
-        type: string
-      - description: Password
-        in: formData
-        name: password
-        required: true
-        type: string
+      description: Sign out a user.
       responses:
-        "201":
-          description: Session id cookie
+        "204":
+          description: No Content
         "400":
           description: Bad request
           schema:
@@ -211,7 +199,7 @@ paths:
           description: Server error
           schema:
             type: string
-      summary: Sign in a user
+      summary: Sign out a user
       tags:
       - Auth
   /api/cell-textures:

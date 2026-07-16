@@ -1,8 +1,9 @@
 package router
 
 import (
+	"context"
 	"encoding/gob"
-	"net/http"
+	"fmt"
 	"net/url"
 	"path/filepath"
 	"time"
@@ -19,6 +20,8 @@ import (
 )
 
 type router struct {
+	version             string
+	needsSetup          bool
 	db                  *services.DB
 	storage             *services.Storage
 	baseURL             *url.URL
@@ -29,6 +32,7 @@ type router struct {
 }
 
 type Config struct {
+	AppVersion          string
 	IsDevMode           bool
 	StaticDir           string
 	DB                  *services.DB
@@ -40,7 +44,7 @@ type Config struct {
 	DiscordClientSecret string
 }
 
-func New(cfg Config) *fiber.App {
+func New(cfg Config) (*fiber.App, error) {
 	gob.Register(uuid.UUID{})
 
 	var fc fiber.Config
@@ -49,6 +53,7 @@ func New(cfg Config) *fiber.App {
 
 	app := fiber.New(fc)
 	r := router{
+		version:             cfg.AppVersion,
 		db:                  cfg.DB,
 		storage:             cfg.Storage,
 		baseURL:             cfg.BaseURL,
@@ -56,6 +61,15 @@ func New(cfg Config) *fiber.App {
 		disableUserCreation: cfg.DisableUserCreation,
 		discordClientID:     cfg.DiscordClientID,
 		discordClientSecret: cfg.DiscordClientSecret,
+	}
+
+	count, err := cfg.DB.Queries.GetAdminCount(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get admin count: %v", err)
+	}
+	hasNoAdmins := count < 1
+	if hasNoAdmins {
+		r.needsSetup = true
 	}
 
 	app.Use(recoverer.New())
@@ -74,9 +88,7 @@ func New(cfg Config) *fiber.App {
 		IdleTimeout: 14 * 24 * time.Hour,
 	}))
 
-	api.Get("/health", func(c fiber.Ctx) error {
-		return c.SendStatus(http.StatusOK)
-	})
+	api.Get("/status", r.getStatus)
 
 	auth := api.Group("/auth")
 	auth.Post("/register", r.registerUser)
@@ -110,10 +122,32 @@ func New(cfg Config) *fiber.App {
 		}))
 	}
 
-	return app
+	return app, nil
 }
 
 func getUserId(c fiber.Ctx) (uuid.UUID, bool) {
 	userId, ok := c.Locals("userId").(uuid.UUID)
 	return userId, ok
+}
+
+type APIStatus struct {
+	Status     string `json:"status"`
+	Version    string `json:"version"`
+	NeedsSetup bool   `json:"needsSetup"`
+}
+
+// getStatus
+//
+//	@Summary Get status
+//	@Description Get API status and information
+//	@Produce json
+//	@Success		200	{object}	APIStatus
+//	@Router /api/status [get]
+func (r *router) getStatus(c fiber.Ctx) error {
+	var status APIStatus
+	status.Status = "OK"
+	status.Version = r.version
+	status.NeedsSetup = r.needsSetup
+
+	return c.JSON(status)
 }

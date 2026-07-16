@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { DEFAULT_TOOL, DEFAULT_VIEW_MODE, type LevelEditorTool } from "$lib/game/level-editor";
+  import { DEFAULT_TOOL, DEFAULT_VIEW_MODE } from "$lib/game/level-editor";
   import BrushToolOptionMenu from "$lib/components/BrushToolOptionMenu.svelte";
   import PaintBucketToolOptionMenu from "$lib/components/PaintBucketToolOptionMenu.svelte";
   import TextureSelectionMenu from "$lib/components/TextureSelectionMenu.svelte";

@@ -11,6 +11,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/log"
 	"github.com/joho/godotenv"
+	"github.com/opendungeon/opendungeon/assets"
 	"github.com/opendungeon/opendungeon/internal/env"
 	"github.com/opendungeon/opendungeon/internal/router"
 	"github.com/opendungeon/opendungeon/internal/services"
@@ -72,8 +73,7 @@ func checkDirPermission(path string) error {
 	return err
 }
 
-//	@title			OpenDungeon API
-//	@version		1.0.0
+//	@title			OpenDungeon
 //	@description	Web API for OpenDungeon
 
 //	@servers.url	http://localhost:8000
@@ -102,6 +102,8 @@ func main() {
 	if devModeFlag != nil {
 		isDevMode = *devModeFlag
 	}
+
+	version := "dev" // TODO: generate this at build time (via ARG in dockerfile)
 
 	if err := setupDirectories(baseDir); err != nil {
 		log.Fatal(err)
@@ -154,7 +156,8 @@ func main() {
 	discordClientID, _ := env.GetOrSecret("DISCORD_CLIENT_ID")
 	discordClientSecret, _ := env.GetOrSecret("DISCORD_CLIENT_SECRET")
 
-	app := router.New(router.Config{
+	app, err := router.New(router.Config{
+		AppVersion:          version,
 		IsDevMode:           isDevMode,
 		StaticDir:           filepath.Join(baseDir, staticDir),
 		DB:                  dbSrv,
@@ -164,6 +167,23 @@ func main() {
 		DisableUserCreation: disableUserCreation == "true",
 		DiscordClientID:     discordClientID,
 		DiscordClientSecret: discordClientSecret,
+	})
+	if err != nil {
+		log.Fatalf("failed to create router: %v", err)
+	}
+
+	app.Hooks().OnPreStartupMessage(func(sm *fiber.PreStartupMessageData) error {
+		header, _ := assets.FS.ReadFile("opendungeon.txt")
+		environment := "Production"
+		if isDevMode {
+			environment = "Development"
+		}
+
+		sm.BannerHeader = string(header)
+		sm.AddInfo("version", "Version", version)
+		sm.AddInfo("environment", "Environment", environment)
+
+		return nil
 	})
 
 	addr := fmt.Sprintf(":%d", port)

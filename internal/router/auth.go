@@ -81,8 +81,8 @@ func (r *router) signIn(c fiber.Ctx) error {
 //	@Tags			Auth
 //	@Accept			plain
 //	@Success		204
-//	@Failure		400			{string}	string	"Bad request"
-//	@Failure		500			{string}	string	"Server error"
+//	@Failure		400	{string}	string	"Bad request"
+//	@Failure		500	{string}	string	"Server error"
 //	@Router			/api/auth/sign-in [post]
 func (r *router) signOut(c fiber.Ctx) error {
 	sess := session.FromContext(c)

@@ -131,33 +131,17 @@ const docTemplate = `{
         },
         "/api/auth/sign-in": {
             "post": {
-                "description": "Sign in a user with email and password.",
+                "description": "Sign out a user.",
                 "consumes": [
                     "text/plain"
                 ],
                 "tags": [
                     "Auth"
                 ],
-                "summary": "Sign in a user",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Email",
-                        "name": "email",
-                        "in": "formData",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Password",
-                        "name": "password",
-                        "in": "formData",
-                        "required": true
-                    }
-                ],
+                "summary": "Sign out a user",
                 "responses": {
-                    "201": {
-                        "description": "Session id cookie"
+                    "204": {
+                        "description": "No Content"
                     },
                     "400": {
                         "description": "Bad request",
@@ -692,11 +676,11 @@ const docTemplate = `{
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "1.0.0",
+	Version:          "",
 	Host:             "",
 	BasePath:         "",
 	Schemes:          []string{},
-	Title:            "OpenDungeon API",
+	Title:            "OpenDungeon",
 	Description:      "Web API for OpenDungeon",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
