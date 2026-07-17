@@ -1,6 +1,6 @@
 -- name: CreateUser :one
-insert into users (email, uuid) 
-values (lower(sqlc.arg(email)), sqlc.arg(uuid))
+insert into users (email, uuid, is_admin)
+values (lower(sqlc.arg(email)), sqlc.arg(uuid), sqlc.arg(is_admin))
 returning uuid,
   email;
 

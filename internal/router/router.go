@@ -90,12 +90,18 @@ func New(cfg Config) (*fiber.App, error) {
 
 	api.Get("/status", r.getStatus)
 
+	admin := api.Group("/admin")
+	admin.Post("/register", r.registerAdminUser)
+
 	auth := api.Group("/auth")
 	auth.Post("/register", r.registerUser)
 	auth.Post("/sign-in", r.signIn)
 	auth.Get("/providers", r.listAuthProviders)
 	auth.Get("/providers/discord/callback", r.discordCallback)
 	auth.Post("/sign-out", r.signOut)
+
+	media := api.Group("/media")
+	media.Get("/avatars/:avatarID", r.getAvatar)
 
 	celltextures := api.Group("/cell-textures", middlewares.Auth)
 	celltextures.Post("/", r.createCellTexture)

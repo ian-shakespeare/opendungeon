@@ -32,7 +32,7 @@ func (r *router) registerUser(c fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).SendString("Invalid request body.")
 	}
 
-	userId, err := handlers.RegisterUser(c.Context(), r.disableUserCreation, r.db, credentials.Email, credentials.Password)
+	userId, err := handlers.RegisterUser(c.Context(), r.disableUserCreation, r.db, credentials.Email, credentials.Password, false)
 	if err != nil {
 		return err
 	}
@@ -141,7 +141,18 @@ func (r *router) discordCallback(c fiber.Ctx) error {
 		return c.Redirect().Status(fiber.StatusSeeOther).To(signInUrl.String())
 	}
 
-	redirect, err := handlers.DiscordCallback(c.Context(), r.disableUserCreation, r.db, r.discordClientID, r.discordClientSecret, r.baseURL, r.clientURL, code, state)
+	redirect, err := handlers.DiscordCallback(
+		c.Context(),
+		r.db,
+		r.storage,
+		r.disableUserCreation,
+		r.discordClientID,
+		r.discordClientSecret,
+		r.baseURL,
+		r.clientURL,
+		code,
+		state,
+	)
 	if err != nil {
 		q := url.Values{}
 		fiberErr := new(fiber.Error)
