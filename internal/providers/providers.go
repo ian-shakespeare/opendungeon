@@ -5,8 +5,6 @@ import (
 	"errors"
 	"io"
 	"net/http"
-
-	"golang.org/x/oauth2"
 )
 
 var (
@@ -24,8 +22,7 @@ type UserInfo struct {
 
 type Provider interface {
 	AuthUrl(state string) string
-	Exchange(ctx context.Context, code string) (*oauth2.Token, error)
-	GetUserInfo(ctx context.Context, token *oauth2.Token) (UserInfo, error)
+	Exchange(ctx context.Context, code string) (UserInfo, error)
 }
 
 func GetAvatar(user UserInfo) (io.ReadCloser, error) {

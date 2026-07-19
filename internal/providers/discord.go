@@ -39,12 +39,13 @@ func (d Discord) AuthUrl(state string) string {
 	return d.AuthCodeURL(state)
 }
 
-func (d Discord) Exchange(ctx context.Context, code string) (*oauth2.Token, error) {
-	return d.Config.Exchange(ctx, code)
-}
-
-func (d Discord) GetUserInfo(ctx context.Context, token *oauth2.Token) (UserInfo, error) {
+func (d Discord) Exchange(ctx context.Context, code string) (UserInfo, error) {
 	var ui UserInfo
+
+	token, err := d.Config.Exchange(ctx, code)
+	if err != nil {
+		return ui, err
+	}
 
 	req, err := http.NewRequest(http.MethodGet, discordApiUrl+"/users/@me", http.NoBody)
 	if err != nil {

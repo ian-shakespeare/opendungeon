@@ -125,17 +125,10 @@ func DiscordCallback(
 	var cr CallbackRedirect
 
 	discord := providers.NewDiscord(baseUrl, clientID, clientSecret)
-
-	token, err := discord.Exchange(ctx, code)
+	discordUser, err := discord.Exchange(ctx, code)
 	if err != nil {
 		log.Errorf("failed to exchange auth code with discord: %v", err)
 		return cr, fiber.NewError(fiber.StatusPreconditionFailed, "Failed to sign in with discord.")
-	}
-
-	discordUser, err := discord.GetUserInfo(ctx, token)
-	if err != nil {
-		log.Errorf("failed to get user info from discord: %v", err)
-		return cr, fiber.NewError(fiber.StatusPreconditionFailed, "Failed to get account info from Discord.")
 	}
 
 	// HANDLE EXISTING DISCORD IDENTITY
