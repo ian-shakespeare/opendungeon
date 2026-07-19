@@ -1,4 +1,4 @@
-import HexagonalGrid from "$lib/hexagonal-grid";
+import HexagonalGrid, { type Cell, type Grid } from "$lib/hexagonal-grid";
 import { Axial } from "$lib/point";
 import { PriorityQueue } from "$lib/priorityqueue";
 
@@ -6,13 +6,65 @@ export interface Weighted {
   weight: number;
 }
 
-export default class PathfindingGrid<T extends Weighted> extends HexagonalGrid<T> {
-  constructor(w: number, h: number, defaultValue: T) {
-    super(w, h, defaultValue);
+export default class PathfindingGrid<T extends Weighted> implements Grid<T> {
+  private grid: HexagonalGrid<T>;
+
+  private constructor(grid: HexagonalGrid<T>) {
+    this.grid = grid;
+  }
+
+  static fromDimensions<T extends Weighted>(
+    w: number,
+    h: number,
+    defaultValue: T,
+  ): PathfindingGrid<T> {
+    const grid = HexagonalGrid.fromDimensions(w, h, defaultValue);
+    return new PathfindingGrid(grid);
+  }
+
+  static fromCells<T extends Weighted>(cells: Iterable<Cell<T>>): PathfindingGrid<T> {
+    const grid = HexagonalGrid.fromCells(cells);
+    return new PathfindingGrid(grid);
+  }
+
+  get cells(): Cell<T>[] {
+    return this.grid.cells;
+  }
+
+  get isEmpty(): boolean {
+    return this.grid.isEmpty;
+  }
+
+  get size(): number {
+    return this.grid.size;
+  }
+
+  toObject(): ({ q: number; r: number } & T)[] {
+    return this.grid.toObject();
+  }
+
+  shrink(isEmpty: (value: T) => boolean): PathfindingGrid<T> {
+    return new PathfindingGrid(this.grid.shrink(isEmpty));
+  }
+
+  has(point: Axial): boolean {
+    return this.grid.has(point);
+  }
+
+  get(point: Axial): Cell<T> | null {
+    return this.grid.get(point);
+  }
+
+  set(point: Axial, value: T) {
+    return this.grid.set(point, value);
+  }
+
+  calcDistance(a: Axial, b: Axial, ignoreBounds?: boolean): number {
+    return this.grid.calcDistance(a, b, ignoreBounds);
   }
 
   getAccessiblePoints(start: Axial, isAccessible: (point: Axial) => boolean): Axial[] {
-    const startCell = this.get(start);
+    const startCell = this.grid.get(start);
     if (!startCell) {
       return [];
     }
@@ -39,8 +91,8 @@ export default class PathfindingGrid<T extends Weighted> extends HexagonalGrid<T
   }
 
   getShortestPath(start: Axial, goal: Axial): { ok: true; path: Axial[] } | { ok: false } {
-    const startCell = this.get(start);
-    const goalCell = this.get(goal);
+    const startCell = this.grid.get(start);
+    const goalCell = this.grid.get(goal);
 
     if (!startCell || startCell.value.weight === 0 || !goalCell || goalCell.value.weight === 0) {
       return { ok: false };
@@ -67,13 +119,13 @@ export default class PathfindingGrid<T extends Weighted> extends HexagonalGrid<T
       }
 
       for (const next of current.getNeighbors()) {
-        const cell = this.get(next);
+        const cell = this.grid.get(next);
         if (!cell || cell.value.weight === 0) {
           continue;
         }
 
         const newCost = costSoFar.get(current)! + cell.value.weight;
-        const heuristic = this.calcDistance(goal, next);
+        const heuristic = this.grid.calcDistance(goal, next);
         if (!costSoFar.has(next) || newCost < costSoFar.get(next)!) {
           costSoFar.set(next, newCost);
           const priority = newCost + heuristic;

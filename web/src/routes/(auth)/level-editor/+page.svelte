@@ -1,6 +1,6 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
-  import { getCellTextureUrl, createLevel } from "$lib/api.svelte";
+  import { getCellTextureUrl, callAPI } from "$lib/api";
   import GameWindow from "$lib/components/GameWindow.svelte";
   import LevelEditorToolMenu from "$lib/components/LevelEditorToolMenu.svelte";
   import StyledButton from "$lib/components/StyledButton.svelte";
@@ -8,10 +8,14 @@
   import { addToast } from "$lib/components/Toaster.svelte";
   import LevelEditor from "$lib/game/level-editor";
   import { resolve } from "$app/paths";
+  import type { PageData } from "./$types";
+  import { untrack } from "svelte";
 
-  let editor = new LevelEditor();
-  let tool = $state(editor.tool);
-  let viewMode = $state(editor.viewMode);
+  let { data }: PageData = $props();
+
+  let editor = $derived.by(() => untrack(() => new LevelEditor(data.level)));
+  let tool = $derived.by(() => untrack(() => editor.tool));
+  let viewMode = $derived.by(() => untrack(() => editor.viewMode));
   let levelName = $state("");
 
   $effect(() => {
@@ -43,7 +47,21 @@
       return;
     }
 
-    const res = await createLevel(levelName, editor.grid);
+    const shrunkGrid = editor.grid.shrink((value) => value.weight === 0 && value.texture === null);
+    if (shrunkGrid.isEmpty) {
+      // TODO: actually verify this is empty (i.e. loop through cells)
+      return { ok: false, error: new Error("Level may not be empty.") };
+    }
+
+    const body = JSON.stringify({
+      name: levelName,
+      level: {
+        version: 1,
+        grid: { cells: shrunkGrid.toObject() },
+      },
+    });
+
+    const res = await callAPI(fetch, "POST", "/levels", { body });
     if (!res.ok) {
       addToast({ data: { title: "Save Failed", description: res.error.message, level: "danger" } });
       return;

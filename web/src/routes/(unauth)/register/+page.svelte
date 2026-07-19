@@ -1,7 +1,7 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
-  import { register, type APIAuthProvider } from "$lib/api.svelte";
+  import { callAPI, type APIAuthProvider } from "$lib/api";
   import StyledAnchor from "$lib/components/StyledAnchor.svelte";
   import StyledButton from "$lib/components/StyledButton.svelte";
   import StyledCard from "$lib/components/StyledCard.svelte";
@@ -16,11 +16,17 @@
 
   let email = $state("");
   let password = $state("");
+  let confirmPassword = $state("");
 
   async function handleSubmit(event: SubmitEvent) {
     event.preventDefault();
 
-    const res = await register(email, password);
+    const body = new FormData();
+    body.append("email", email);
+    body.append("password", password);
+    body.append("confirmPassword", confirmPassword);
+
+    const res = await callAPI(fetch, "POST", "/auth/register", { body });
     if (res.ok) {
       await goto(resolve("/dashboard"));
       return;
@@ -63,8 +69,7 @@
       <div class="grid gap-2">
         <StyledInput bind:value={email} type="email" placeholder="Email" />
         <StyledInput bind:value={password} type="password" placeholder="Password" />
-        <!-- TODO: confirm password -->
-        <StyledInput type="password" placeholder="Confirm Password" />
+        <StyledInput bind:value={confirmPassword} type="password" placeholder="Confirm Password" />
       </div>
       <StyledButton label="Register" />
     </form>

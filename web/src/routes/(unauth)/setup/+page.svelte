@@ -1,7 +1,7 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
-  import { callAPI } from "$lib/api.svelte";
+  import { callAPI } from "$lib/api";
   import StyledButton from "$lib/components/StyledButton.svelte";
   import StyledCard from "$lib/components/StyledCard.svelte";
   import StyledInput from "$lib/components/StyledInput.svelte";

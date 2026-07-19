@@ -5,21 +5,57 @@ export type Cell<T> = {
   value: T;
 };
 
-export default class HexagonalGrid<T> {
+export interface Grid<T> {
+  isEmpty: boolean;
+  size: number;
+  cells: Cell<T>[];
+  has: (point: Axial) => boolean;
+  get: (point: Axial) => Cell<T> | null;
+  set: (point: Axial, value: T) => void;
+  calcDistance: (a: Axial, b: Axial, ignoreBounds?: boolean) => number;
+  shrink: (isEmpty: (value: T) => boolean) => Grid<T>;
+  toObject: () => ({ q: number; r: number } & T)[];
+}
+
+export default class HexagonalGrid<T> implements Grid<T> {
   private rows: Cell<T>[][];
 
-  constructor(w: number, h: number, defaultValue: T) {
-    this.rows = [];
+  constructor(rows: Cell<T>[][]) {
+    this.rows = rows;
+  }
+
+  static fromDimensions<T>(w: number, h: number, defaultValue: T): HexagonalGrid<T> {
+    const rows: Cell<T>[][] = [];
 
     for (let row = 0; row < h; row += 1) {
-      this.rows.push([]);
+      rows.push([]);
       for (let col = 0; col < w; col += 1) {
         const q = col - Math.floor(row / 2);
         const r = row;
         const cell = { point: new Axial(q, r), value: defaultValue };
-        this.rows[row]!.push(cell);
+        rows[row]!.push(cell);
       }
     }
+
+    return new HexagonalGrid(rows);
+  }
+
+  static fromCells<T>(cells: Iterable<Cell<T>>): HexagonalGrid<T> {
+    const rows: Cell<T>[][] = [];
+    for (const cell of cells) {
+      while (cell.point.r >= rows.length) {
+        rows.push([]);
+      }
+
+      rows[cell.point.r].push(cell);
+    }
+
+    // make sure Q values are in the right order
+    for (let row = 0; row < rows.length; row++) {
+      rows[row] = rows[row].toSorted((a, b) => a.point.q - b.point.q);
+    }
+
+    return new HexagonalGrid(rows);
   }
 
   get isEmpty(): boolean {
@@ -136,7 +172,7 @@ export default class HexagonalGrid<T> {
       throw new Error("Cannot shrink an empty grid");
     }
 
-    const shrunkGrid = new HexagonalGrid<T>(lastColumn - firstColumn, lastRow - firstRow, {
+    const shrunkGrid = HexagonalGrid.fromDimensions(lastColumn - firstColumn, lastRow - firstRow, {
       isEmpty: true,
     } as T);
 

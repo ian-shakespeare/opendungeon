@@ -28,6 +28,7 @@ import {
   ZLEVEL_FLOATING,
 } from "$lib/game/level-editor/consts";
 import { buildCellsDrawBuffer, writeHexInstance } from "$lib/game/level-editor/draw";
+import { getCellTextureUrl, type APILevelData } from "$lib/api";
 
 export const DEFAULT_TOOL: LevelEditorTool = {
   type: "texturebrush",
@@ -52,14 +53,7 @@ export default class LevelEditor implements Game {
   private renderer: Renderer | undefined;
   private windowWidth: number = 0;
   private windowHeight: number = 0;
-  grid: PathfindingGrid<{ weight: number; texture: string }> = new PathfindingGrid(
-    DEFAULT_GRID_WIDTH,
-    DEFAULT_GRID_HEIGHT,
-    {
-      weight: 0,
-      texture: DEFAULT_CELL_TEXTURE,
-    },
-  );
+  grid: PathfindingGrid<{ weight: number; texture: string }>;
   private camera: Camera | undefined;
   private controller: Controller | undefined;
   private input: { type: "none" } | { type: "dragging"; button: MouseButton } = {
@@ -69,6 +63,23 @@ export default class LevelEditor implements Game {
   private isPaused = false;
   tool: LevelEditorTool = DEFAULT_TOOL;
   viewMode: LevelEditorViewMode = "texture";
+
+  constructor(data?: APILevelData) {
+    if (!data) {
+      this.grid = PathfindingGrid.fromDimensions(DEFAULT_GRID_WIDTH, DEFAULT_GRID_HEIGHT, {
+        weight: 0,
+        texture: DEFAULT_CELL_TEXTURE,
+      });
+      return;
+    }
+
+    this.grid = PathfindingGrid.fromCells(
+      data.grid.cells.map(({ r, q, weight, texture }) => ({
+        point: new Axial(q, r),
+        value: { texture: texture ?? DEFAULT_CELL_TEXTURE, weight },
+      })),
+    );
+  }
 
   get paused(): boolean {
     return this.isPaused;
@@ -91,6 +102,17 @@ export default class LevelEditor implements Game {
         repeat: true,
       }),
     ]);
+
+    const textures = new Set(
+      this.grid.cells
+        .filter(({ value }) => !!value.texture && value.texture !== DEFAULT_CELL_TEXTURE)
+        .map(({ value }) => value.texture!),
+    );
+    await Promise.all(
+      textures
+        .values()
+        .map((texture) => this.loadTexture(texture, getCellTextureUrl(texture).toString())),
+    );
 
     this.controller = new Controller(canvas);
 

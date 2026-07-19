@@ -1,7 +1,7 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
-  import { signIn, type APIAuthProvider } from "$lib/api.svelte";
+  import { callAPI, type APIAuthProvider } from "$lib/api";
   import StyledButton from "$lib/components/StyledButton.svelte";
   import StyledCard from "$lib/components/StyledCard.svelte";
   import type { PageProps } from "./$types";
@@ -20,7 +20,11 @@
   async function handleSubmit(event: SubmitEvent) {
     event.preventDefault();
 
-    const res = await signIn(email, password);
+    const body = new FormData();
+    body.append("email", email);
+    body.append("password", password);
+
+    const res = await callAPI(fetch, "POST", "/auth/sign-in", { body });
     if (res.ok) {
       await goto(resolve("/dashboard"));
       return;

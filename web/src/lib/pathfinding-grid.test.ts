@@ -5,7 +5,7 @@ import { Axial } from "$lib/point";
 describe.concurrent("HexGrid", () => {
   describe("getShortestPath", () => {
     test("straight", () => {
-      const grid = new PathfindingGrid(5, 5, { weight: 1 });
+      const grid = PathfindingGrid.fromDimensions(5, 5, { weight: 1 });
 
       const result = grid.getShortestPath(new Axial(0, 0), new Axial(2, 4));
       expect(result.ok).toBeTruthy();
@@ -20,7 +20,7 @@ describe.concurrent("HexGrid", () => {
     });
 
     test("obstructed simple", () => {
-      const grid = new PathfindingGrid(5, 5, { weight: 1 });
+      const grid = PathfindingGrid.fromDimensions(5, 5, { weight: 1 });
       grid.set(new Axial(2, 0), { weight: 0 });
 
       const result = grid.getShortestPath(new Axial(0, 0), new Axial(2, 4));
@@ -36,7 +36,7 @@ describe.concurrent("HexGrid", () => {
     });
 
     test("obstructed complex", () => {
-      const grid = new PathfindingGrid(5, 5, { weight: 1 });
+      const grid = PathfindingGrid.fromDimensions(5, 5, { weight: 1 });
       grid.set(new Axial(2, 0), { weight: 0 });
       grid.set(new Axial(1, 2), { weight: 0 });
       grid.set(new Axial(2, 2), { weight: 0 });
@@ -56,7 +56,7 @@ describe.concurrent("HexGrid", () => {
     });
 
     test("impossible", () => {
-      const grid = new PathfindingGrid(5, 5, { weight: 1 });
+      const grid = PathfindingGrid.fromDimensions(5, 5, { weight: 1 });
       grid.set(new Axial(2, 3), { weight: 0 });
       grid.set(new Axial(3, 3), { weight: 0 });
       grid.set(new Axial(2, 4), { weight: 0 });
@@ -66,7 +66,7 @@ describe.concurrent("HexGrid", () => {
     });
 
     test("invalid points", () => {
-      const grid = new PathfindingGrid(5, 5, { weight: 1 });
+      const grid = PathfindingGrid.fromDimensions(5, 5, { weight: 1 });
       const result = grid.getShortestPath(new Axial(0, 6), new Axial(6, 0));
       expect(result.ok).toBeFalsy();
     });
