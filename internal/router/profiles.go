@@ -1,6 +1,8 @@
 package router
 
 import (
+	"mime/multipart"
+
 	"github.com/gofiber/fiber/v3"
 	_ "github.com/opendungeon/opendungeon/internal/database"
 	"github.com/opendungeon/opendungeon/internal/handlers"
@@ -11,9 +13,10 @@ import (
 //	@Summary		Create or replace user's profile
 //	@Description	Create or replace the profile for the authenticated user.
 //	@Tags			Profiles
-//	@Accept			plain
+//	@Accept			mpfd
 //	@Produce		json
-//	@Param			profile	formData	handlers.UpsertedProfile	true	"Profile data"
+//	@Param			username			formData	string							true	"Username"
+//	@Param			avatar		formData	file							false	"Avatar image file"
 //	@Success		201		{object}	database.UpsertProfileRow
 //	@Failure		400		{string}	string	"Bad request"
 //	@Failure		401		{string}	string	"Unauthorized"
@@ -25,12 +28,27 @@ func (r *router) upsertMyProfile(c fiber.Ctx) error {
 		return fiber.ErrUnauthorized
 	}
 
-	var profile handlers.UpsertedProfile
-	if err := c.Bind().Form(&profile); err != nil {
+	form, err := c.MultipartForm()
+	if err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString("Invalid request body.")
 	}
 
-	upserted, err := handlers.UpsertProfile(c.Context(), r.db, userId, profile)
+	usernames, ok := form.Value["username"]
+	if !ok || len(usernames) < 1 {
+		return c.Status(fiber.StatusBadRequest).SendString("Missing username.")
+	}
+	username := usernames[0]
+
+	var avatar multipart.File
+	avatars, ok := form.File["avatar"]
+	if ok && len(avatars) == 1 {
+		avatar, err = avatars[0].Open()
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).SendString("Failed to open avatar.")
+		}
+	}
+
+	upserted, err := handlers.UpsertProfile(c.Context(), r.db, r.storage, userId, username, avatar)
 	if err != nil {
 		return err
 	}

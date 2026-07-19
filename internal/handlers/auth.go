@@ -20,7 +20,7 @@ import (
 	sqlite3 "modernc.org/sqlite/lib"
 )
 
-func RegisterUser(ctx context.Context, disableUserCreation bool, db *services.DB, email string, password string) (uuid.UUID, error) {
+func RegisterUser(ctx context.Context, disableUserCreation bool, db *services.DB, email string, password string, isAdmin bool) (uuid.UUID, error) {
 	if disableUserCreation {
 		return uuid.Nil, fiber.NewError(fiber.StatusForbidden, "User creation is disabled.")
 	}
@@ -32,8 +32,9 @@ func RegisterUser(ctx context.Context, disableUserCreation bool, db *services.DB
 	passwordDigest := string(bytes)
 
 	user, err := db.Queries.CreateUser(ctx, database.CreateUserParams{
-		Email: email,
-		Uuid:  uuid.New(),
+		Email:   email,
+		Uuid:    uuid.New(),
+		IsAdmin: isAdmin,
 	})
 	if err != nil {
 		sqlErr := new(sqlite.Error)
@@ -114,8 +115,9 @@ type CallbackRedirect struct {
 
 func DiscordCallback(
 	ctx context.Context,
-	disableUserCreation bool,
 	db *services.DB,
+	storage *services.Storage,
+	disableUserCreation bool,
 	clientID, clientSecret string,
 	baseUrl, clientUrl *url.URL,
 	code, state string,
@@ -123,17 +125,10 @@ func DiscordCallback(
 	var cr CallbackRedirect
 
 	discord := providers.NewDiscord(baseUrl, clientID, clientSecret)
-
-	token, err := discord.Exchange(ctx, code)
+	discordUser, err := discord.Exchange(ctx, code)
 	if err != nil {
 		log.Errorf("failed to exchange auth code with discord: %v", err)
 		return cr, fiber.NewError(fiber.StatusPreconditionFailed, "Failed to sign in with discord.")
-	}
-
-	discordUser, err := discord.GetUserInfo(ctx, token)
-	if err != nil {
-		log.Errorf("failed to get user info from discord: %v", err)
-		return cr, fiber.NewError(fiber.StatusPreconditionFailed, "Failed to get account info from Discord.")
 	}
 
 	// HANDLE EXISTING DISCORD IDENTITY
@@ -203,16 +198,18 @@ func DiscordCallback(
 		return cr, fiber.NewError(fiber.StatusInternalServerError, "Failed to create identity.")
 	}
 
-	_, err = db.Queries.UpsertProfile(ctx, database.UpsertProfileParams{
-		UserUuid: user.Uuid,
-		Username: discordUser.Username,
-		Avatar:   discordUser.AvatarUri,
-	})
+	avatar, err := providers.GetAvatar(discordUser)
 	if err != nil {
-		log.Warn("failed to create profile for discord user: %v", err)
+		log.Warnf("failed to get user avatar from third party: %v", err)
+	}
+	defer avatar.Close()
+
+	_, err = UpsertProfile(ctx, db, storage, user.Uuid, discordUser.Username, avatar)
+	if err != nil {
+		log.Warnf("failed to create profile for discord user: %v", err)
 	}
 
 	cr.UserID = user.Uuid
-	cr.Redirect = clientUrl.JoinPath("/profiles/me/edit")
+	cr.Redirect = clientUrl.JoinPath("/me/edit")
 	return cr, nil
 }

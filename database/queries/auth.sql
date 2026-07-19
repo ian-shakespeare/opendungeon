@@ -1,6 +1,6 @@
 -- name: CreateUser :one
-insert into users (email, uuid) 
-values (lower(sqlc.arg(email)), sqlc.arg(uuid))
+insert into users (email, uuid, is_admin)
+values (lower(sqlc.arg(email)), sqlc.arg(uuid), sqlc.arg(is_admin))
 returning uuid,
   email;
 
@@ -37,3 +37,8 @@ join users u on u.user_id = i.user_id
 join providers p on p.provider_id = i.provider_id
 where u.email = lower(sqlc.arg(email))
   and p.name = sqlc.arg(provider);
+
+-- name: GetAdminCount :one
+select count(1)
+from users
+where is_admin = true;

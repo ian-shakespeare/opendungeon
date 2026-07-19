@@ -47,7 +47,7 @@ VOLUME /var/lib/opendungeon
 USER oduser
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-  CMD wget -q --spider http://127.0.0.1:80/api/health || exit 1
+  CMD wget -q --spider http://127.0.0.1:80/api/status || exit 1
 
 EXPOSE 80
 

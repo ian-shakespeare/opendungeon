@@ -5,7 +5,7 @@ import { Axial } from "$lib/point";
 describe.concurrent("HexGrid", () => {
   describe("get", () => {
     test("gets existing cell", () => {
-      const grid = new HexagonalGrid(7, 7, 1);
+      const grid = HexagonalGrid.fromDimensions(7, 7, 1);
 
       (
         [
@@ -22,7 +22,7 @@ describe.concurrent("HexGrid", () => {
     });
 
     test("get out of bounds", () => {
-      const grid = new HexagonalGrid(7, 7, 1);
+      const grid = HexagonalGrid.fromDimensions(7, 7, 1);
       (
         [
           [-1, 0],
@@ -41,13 +41,13 @@ describe.concurrent("HexGrid", () => {
 
   describe("calcDistance", () => {
     test("straight horizontal", () => {
-      const grid = new HexagonalGrid(10, 10, 1);
+      const grid = HexagonalGrid.fromDimensions(10, 10, 1);
       const distance = grid.calcDistance(new Axial(0, 0), new Axial(9, 0));
       expect(distance).toBe(9);
     });
 
     test("straight diagonal", () => {
-      const grid = new HexagonalGrid(10, 10, 1);
+      const grid = HexagonalGrid.fromDimensions(10, 10, 1);
       const distance = grid.calcDistance(new Axial(0, 0), new Axial(5, 9));
       expect(distance).toBe(14);
     });

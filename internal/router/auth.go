@@ -32,7 +32,7 @@ func (r *router) registerUser(c fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).SendString("Invalid request body.")
 	}
 
-	userId, err := handlers.RegisterUser(c.Context(), r.disableUserCreation, r.db, credentials.Email, credentials.Password)
+	userId, err := handlers.RegisterUser(c.Context(), r.disableUserCreation, r.db, credentials.Email, credentials.Password, false)
 	if err != nil {
 		return err
 	}
@@ -72,6 +72,22 @@ func (r *router) signIn(c fiber.Ctx) error {
 	sess := session.FromContext(c)
 	sess.Set("user_id", userId)
 	return c.SendStatus(fiber.StatusCreated)
+}
+
+// signOut
+//
+//	@Summary		Sign out a user
+//	@Description	Sign out a user.
+//	@Tags			Auth
+//	@Accept			plain
+//	@Success		204
+//	@Failure		400	{string}	string	"Bad request"
+//	@Failure		500	{string}	string	"Server error"
+//	@Router			/api/auth/sign-in [post]
+func (r *router) signOut(c fiber.Ctx) error {
+	sess := session.FromContext(c)
+	sess.Delete("user_id")
+	return c.SendStatus(fiber.StatusNoContent)
 }
 
 // listAuthProviders
@@ -125,7 +141,18 @@ func (r *router) discordCallback(c fiber.Ctx) error {
 		return c.Redirect().Status(fiber.StatusSeeOther).To(signInUrl.String())
 	}
 
-	redirect, err := handlers.DiscordCallback(c.Context(), r.disableUserCreation, r.db, r.discordClientID, r.discordClientSecret, r.baseURL, r.clientURL, code, state)
+	redirect, err := handlers.DiscordCallback(
+		c.Context(),
+		r.db,
+		r.storage,
+		r.disableUserCreation,
+		r.discordClientID,
+		r.discordClientSecret,
+		r.baseURL,
+		r.clientURL,
+		code,
+		state,
+	)
 	if err != nil {
 		q := url.Values{}
 		fiberErr := new(fiber.Error)

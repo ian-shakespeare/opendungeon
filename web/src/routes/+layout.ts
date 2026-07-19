@@ -1,38 +1,25 @@
-import { auth, getMyProfile, NOT_FOUND, UNAUTHORIZED } from "$lib/api.svelte";
+import { callAPI, type APIStatus } from "$lib/api";
 import { error, redirect } from "@sveltejs/kit";
 import type { LayoutLoad } from "./$types";
 
 export const prerender = true;
 export const ssr = false;
 
-const authRoutes = ["/register", "/sign-in"];
-const profileRoutes = ["/me/edit"];
+const setupRoute = "/setup";
 
-export const load: LayoutLoad = async ({ url }) => {
-  const isUnauthedRoute = authRoutes.some((path) => url.pathname.includes(path));
-  if (isUnauthedRoute) {
-    return;
+export const load: LayoutLoad = async ({ url, fetch }) => {
+  const statusRes = await callAPI(fetch, "GET", "/status");
+  if (!statusRes.ok) {
+    error(500, statusRes.error.message);
   }
 
-  if (auth.isSignedIn === "no") {
-    redirect(303, "/sign-in");
+  const status: APIStatus = await statusRes.data.json();
+  const isSettingUp = url.pathname.includes(setupRoute);
+  if (status.needsSetup && !isSettingUp) {
+    redirect(303, "/setup");
   }
 
-  const res = await getMyProfile();
-  if (!res.ok) {
-    if (res.error.cause === UNAUTHORIZED) {
-      auth.isSignedIn = "no";
-      redirect(303, "/sign-in");
-    } else if (res.error.cause === NOT_FOUND) {
-      const isProfileRoute = profileRoutes.some((path) => url.pathname.includes(path));
-      if (isProfileRoute) {
-        return;
-      }
-      redirect(303, "/me/edit");
-    }
-
-    error(500, res.error.message);
-  }
-  auth.isSignedIn = "yes";
-  auth.profile = res.profile;
+  return {
+    status,
+  };
 };

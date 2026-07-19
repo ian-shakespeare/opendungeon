@@ -72,8 +72,13 @@ func ListLevels(
 		if errors.Is(err, sql.ErrNoRows) {
 			return []database.ListLevelsRow{}, nil
 		}
+
 		log.Errorf("failed to list levels: %v", err)
 		return nil, fiber.ErrInternalServerError
+	}
+
+	if levels == nil {
+		levels = []database.ListLevelsRow{}
 	}
 
 	return levels, nil

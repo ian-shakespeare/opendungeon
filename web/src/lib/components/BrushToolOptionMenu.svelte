@@ -1,5 +1,7 @@
 <script lang="ts">
   import { DEFAULT_VIEW_MODE, type BrushTool } from "$lib/game/level-editor";
+  import StyledCard from "$lib/components/StyledCard.svelte";
+  import StyledButton from "./StyledButton.svelte";
 
   let {
     brush = $bindable({ type: "texturebrush", texture: null } as BrushTool),
@@ -28,19 +30,18 @@
   ];
 </script>
 
-<div class="text-white grid bg-aurora-gray-1200 rounded px-4 py-3 grid gap-3 pointer-events-auto">
-  <div>
+<StyledCard class="grid gap-3 px-4 py-3 pointer-events-auto">
+  <div class="flex gap-2">
     {#each brushModes as brushMode, i (i)}
-      <button
-        data-selected={brushMode.selected}
+      <StyledButton
+        mode={brushMode.selected ? "primary" : "outline"}
         onclick={() => {
           brush = brushMode.tool;
           viewMode = brushMode.viewMode;
         }}
-        class="bg-aurora-gray-1100 data-[selected=true]:bg-aurora-gray-900 px-4 py-3 first:rounded-l last:rounded-r"
-      >
-        {brushMode.label}
-      </button>
+        label={brushMode.label}
+        class="px-4 py-3"
+      />
     {/each}
   </div>
   {#if brush.type == "weightbrush" && viewMode === "weight"}
@@ -60,4 +61,4 @@
       </fieldset>
     </div>
   {/if}
-</div>
+</StyledCard>

@@ -1,8 +1,10 @@
 <script lang="ts">
   import "./layout.css";
   import favicon from "$lib/assets/favicon.svg";
+  import Toaster from "$lib/components/Toaster.svelte";
+  import type { LayoutProps } from "./$types";
 
-  let { children } = $props();
+  let { children }: LayoutProps = $props();
 </script>
 
 <svelte:head>
@@ -10,4 +12,8 @@
   <title>OpenDungeon</title>
 </svelte:head>
 
-{@render children()}
+<div class="h-full bg-linear-to-br from-aurora-magenta-900 to-aurora-magenta-1000">
+  {@render children()}
+</div>
+
+<Toaster />
