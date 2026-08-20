@@ -183,15 +183,31 @@ function buildTokens(context: TemplateBuildContext, tokens: TemplateToken[]) {
         }
         assert(!!tokens[cursor], "for block ended unexpectedly");
 
+        // range loops
+        if (token.args[0] === "range") {
+          const range = Number(token.args[1]);
+          assert(Number.isInteger(range), "range argument must be an integer");
+
+          for (let i = 0; i < range; i++) {
+            output += buildTokens({ ...context, index: i }, blockTokens);
+          }
+
+          cursor++;
+          continue;
+        }
+
+        // iterable loops
         const subject = context[token.args[0]] as Iterable<any>;
         assert(isIterable(subject), "loop argument must be iterable");
 
+        let index = 0;
         for (const value of subject) {
           if (isObject(value)) {
-            output += buildTokens({ ...context, value, ...(value as Object) }, blockTokens);
+            output += buildTokens({ ...context, value, index, ...(value as Object) }, blockTokens);
           } else {
-            output += buildTokens({ ...context, value }, blockTokens);
+            output += buildTokens({ ...context, value, index }, blockTokens);
           }
+          index++;
         }
 
         cursor++;

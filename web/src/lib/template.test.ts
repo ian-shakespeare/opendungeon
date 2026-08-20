@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import Template from "$lib/template";
 
-describe("Template", () => {
+describe.concurrent("Template", () => {
   test("build literal", () => {
     const template = new Template("this is a basic string");
     const received = template.build({});
@@ -62,5 +62,19 @@ describe("Template", () => {
       ],
     });
     expect(received).toBe("this is a very funny somewhat epic mega awesome string");
+  });
+
+  test("build indexed for statement", () => {
+    const template = new Template(
+      "i can count to{% for numbers %} {{ index }} {{ value }}{% endfor %}",
+    );
+    const received = template.build({ numbers: ["zero", "one", "two"] });
+    expect(received).toBe("i can count to 0 zero 1 one 2 two");
+  });
+
+  test("build for range statement", () => {
+    const template = new Template("i can count to{% for range 3 %} {{ index }}{% endfor %}");
+    const received = template.build({ numbers: ["zero", "one", "two"] });
+    expect(received).toBe("i can count to 0 1 2");
   });
 });
