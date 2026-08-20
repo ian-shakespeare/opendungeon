@@ -22,6 +22,7 @@
   import { Cartesian, degToRad } from "$lib/point";
   import * as GLM from "gl-matrix";
   import LoadLevelMessage from "$lib/messages/loadlevel";
+  import assert from "$lib/assert";
 
   let { data }: PageProps = $props();
 
@@ -71,10 +72,8 @@
         case MessageType.Ack: {
           const ackMessage = AckMessage.fromBuffer(buffer);
           const index = pendingMessages.findIndex((msg) => msg.id === ackMessage.promptId);
-          if (index === -1) {
-            alert("Received an ACK for a message that was not sent.");
-            return;
-          }
+          assert(index !== -1, "Received an ACK for a message that was not sent.");
+
           if (ackMessage.accepted) {
             pendingMessages.splice(index, 1);
           } else {
