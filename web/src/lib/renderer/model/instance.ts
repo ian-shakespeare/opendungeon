@@ -1,17 +1,17 @@
-import DynamicGLTF from "$lib/renderer/gltf/dynamic";
+import DynamicModel from "$lib/renderer/model/dynamic";
 import { MAT4_FLOAT_SIZE, TRS_SIZE, VEC3_FLOAT_SIZE, VEC4_FLOAT_SIZE } from "$lib/renderer/consts";
 import assert from "$lib/assert";
 import * as GLM from "gl-matrix";
-import { clamp, sizeOfType } from "$lib/renderer/gltf/utils";
+import { clamp, sizeOfType } from "$lib/renderer/model/utils";
 
-export default class InstanceGLTF {
+export default class ModelInstance {
   private trs: Float32Array;
-  readonly model: DynamicGLTF;
+  readonly model: DynamicModel;
   readonly globals: Float32Array;
   readonly jointMatrices: Float32Array[];
   transform: GLM.mat4;
 
-  constructor(model: DynamicGLTF) {
+  constructor(model: DynamicModel) {
     this.model = model;
     this.globals = new Float32Array(MAT4_FLOAT_SIZE * model.nodes.length);
     this.trs = new Float32Array(model.baseTRS);
@@ -78,9 +78,9 @@ export default class InstanceGLTF {
 
   // dfs scene graph to generate transforms
   updateTransforms() {
-    for (const rootNode of this.model.scene.nodes) {
+    for (const root of this.model.roots) {
       const stack: Array<{ nodeIndex: number; parentGlobal: GLM.mat4 }> = [
-        { nodeIndex: rootNode, parentGlobal: GLM.mat4.create() },
+        { nodeIndex: root, parentGlobal: GLM.mat4.create() },
       ];
 
       while (stack.length > 0) {
@@ -111,7 +111,7 @@ export default class InstanceGLTF {
   }
 
   computeSkinningMatrix() {
-    if (!this.model.jointed) {
+    if (this.model.skins.length === 0) {
       return;
     }
 

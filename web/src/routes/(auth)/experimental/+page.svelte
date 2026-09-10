@@ -2,12 +2,13 @@
   import Renderer from "$lib/renderer";
   import Texture from "$lib/renderer/texture";
   import { onMount } from "svelte";
-  import CesiumMan from "$lib/assets/CesiumMan.gltf?raw";
+  // import CesiumMan from "$lib/assets/CesiumMan.gltf?raw";
+  import CesiumManGLB from "$lib/assets/CesiumMan.glb?url";
   import { OrthographicCamera, type Camera } from "$lib/renderer/camera";
   import * as GLM from "gl-matrix";
-  import type InstanceGLTF from "$lib/renderer/gltf/instance";
-  import GLTFAnimator from "$lib/renderer/gltf/animator";
-  import type DynamicGLTF from "$lib/renderer/gltf/dynamic";
+  import type ModelInstance from "$lib/renderer/model/instance";
+  import ModelAnimator from "$lib/renderer/model/animator";
+  import type DynamicModel from "$lib/renderer/model/dynamic";
 
   let canvas = $state<HTMLCanvasElement>()!;
   let loading = $state(true);
@@ -17,9 +18,9 @@
   let simpleSkinId = -1;
   let renderer: Renderer;
   let camera: Camera;
-  let animator: GLTFAnimator;
-  let instance1: InstanceGLTF;
-  let instance2: InstanceGLTF;
+  let animator: ModelAnimator;
+  let instance1: ModelInstance;
+  let instance2: ModelInstance;
 
   onMount(() => {
     renderer = new Renderer(canvas, {
@@ -30,15 +31,15 @@
     camera = new OrthographicCamera(canvas.width / canvas.height);
     camera.zoom = 5;
 
-    animator = new GLTFAnimator();
+    animator = new ModelAnimator();
 
     Promise.all([
       renderer.loadTexture("system.plain", new Texture(1, 1)),
-      renderer.createDynamicGLTFElement(JSON.parse(CesiumMan)),
+      renderer.createDynamicGLBElement(CesiumManGLB),
     ]).then(([, gltfId]) => {
       simpleSkinId = gltfId;
       loading = false;
-      const gltf = renderer.getAndUseElement<DynamicGLTF>(gltfId);
+      const gltf = renderer.getAndUseElement<DynamicModel>(gltfId);
       instance1 = gltf.createInstance();
       GLM.mat4.translate(
         instance1.transform,
@@ -80,7 +81,7 @@
 
     renderer.clear();
 
-    const simpleSkin = renderer.getAndUseElement<DynamicGLTF>(simpleSkinId);
+    const simpleSkin = renderer.getAndUseElement<DynamicModel>(simpleSkinId);
     simpleSkin.setCamera(camera);
     simpleSkin.draw();
   }

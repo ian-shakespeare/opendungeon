@@ -4,8 +4,8 @@ import {
   type GLTFMeshAttribute,
   type GLTFType,
 } from "./types";
-import type { VertexAttribute } from "../element";
-import { VEC2_FLOAT_SIZE, VEC3_FLOAT_SIZE, VEC4_FLOAT_SIZE } from "../consts";
+import type { VertexAttribute } from "$lib/renderer/element";
+import { VEC2_FLOAT_SIZE, VEC3_FLOAT_SIZE, VEC4_FLOAT_SIZE } from "$lib/renderer/consts";
 
 export function getAttributeName(attribute: GLTFMeshAttribute): string | null {
   if (attribute === "POSITION") {
@@ -146,7 +146,7 @@ export function getAttributeInfo(
   return null;
 }
 
-export async function uriToBuffer(uri: string): Promise<Uint8Array> {
+export async function uriToBuffer(uri: string): Promise<Uint8Array<ArrayBuffer>> {
   return uri.startsWith("data:")
     ? Uint8Array.fromBase64(uri.split(",").slice(1).join(""))
     : await fetch(uri).then(async (res) =>
@@ -200,6 +200,23 @@ export async function loadImage(
     image.onerror = rej;
   });
 
+  image.src = URL.createObjectURL(blob);
+  await load;
+
+  URL.revokeObjectURL(image.src);
+  return image;
+}
+
+export async function loadImageBuffer(buffer: Uint8Array<ArrayBuffer>, type: string) {
+  const image = new Image();
+  const blob = new Blob([buffer], { type });
+  const load = new Promise((res, rej) => {
+    image.onload = res;
+    image.onerror = (reason) => {
+      console.error("failed to load image buffer");
+      rej(reason);
+    };
+  });
   image.src = URL.createObjectURL(blob);
   await load;
 
