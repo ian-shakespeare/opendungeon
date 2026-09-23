@@ -1,6 +1,5 @@
 <script lang="ts">
   import Renderer from "$lib/renderer";
-  import Texture from "$lib/renderer/texture";
   import { onMount } from "svelte";
   import CesiumManGLB from "$lib/assets/CesiumMan.glb?url";
   import CrateGLB from "$lib/assets/crate.glb?url";
@@ -37,10 +36,9 @@
     animator = new ModelAnimator();
 
     Promise.all([
-      renderer.loadTexture("system.plain", new Texture(1, 1)),
       renderer.createDynamicGLBElement(CesiumManGLB),
       renderer.createStaticGLBElement(CrateGLB),
-    ]).then(([, loadedCesiumMan, loadedCrate]) => {
+    ]).then(([loadedCesiumMan, loadedCrate]) => {
       cesiumManId = loadedCesiumMan;
       crateId = loadedCrate;
       loading = false;
