@@ -8,6 +8,7 @@ import {
   type GLTFAlphaMode,
   type Material,
   type Mesh,
+  type ModelParameters,
   type Node,
   type Skin,
 } from "$lib/renderer/model/types";
@@ -29,27 +30,33 @@ export default class DynamicModel implements RenderElement {
   readonly baseTRS: Float32Array;
   private instances: ModelInstance[];
 
-  constructor(
-    shader: Shader,
-    animations: Record<string, Animation>,
-    buffers: WebGLBuffer[],
-    materials: Material[],
-    meshes: Mesh[],
-    textures: WebGLTexture[],
-    nodes: Node[],
-    roots: number[],
-    skins: Skin[],
-    trsTransforms: Float32Array,
-  ) {
+  defaultMaterial = DEFAULT_MATERIAL;
+
+  constructor({
+    shader,
+    animations,
+    buffers,
+    materials,
+    meshes,
+    textures,
+    nodes,
+    roots,
+    skins,
+    trsTransforms,
+  }: ModelParameters) {
+    if (!trsTransforms) {
+      throw new Error("missing required parameter: trsTransforms");
+    }
+
     this.shader = shader;
-    this.animations = animations;
+    this.animations = animations ?? {};
     this.buffers = buffers;
     this.materials = materials;
     this.meshes = meshes;
     this.nodes = nodes;
     this.textures = textures;
     this.roots = roots;
-    this.skins = skins;
+    this.skins = skins ?? [];
     this.baseTRS = trsTransforms;
     this.instances = [];
   }
@@ -136,7 +143,7 @@ export default class DynamicModel implements RenderElement {
     let uniformSet = false;
 
     for (const { vertexArray, drawMode, indices, material: matIndex } of mesh.primitives) {
-      const material = matIndex === undefined ? DEFAULT_MATERIAL : this.materials[matIndex]!;
+      const material = matIndex === undefined ? this.defaultMaterial : this.materials[matIndex]!;
       const alphaMode: GLTFAlphaMode = material.alphaMode ?? "OPAQUE";
       if (!accept(alphaMode)) {
         continue;
