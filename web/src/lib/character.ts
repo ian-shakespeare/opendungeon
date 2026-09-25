@@ -11,6 +11,7 @@ import { getGLTFModelParams } from "$lib/renderer/model/gltf";
 import Shader from "$lib/renderer/shader";
 import vertex from "$lib/assets/shaders/character.vert?raw";
 import fragment from "$lib/assets/shaders/character.frag?raw";
+import { TRS_SIZE, VEC3_FLOAT_SIZE } from "$lib/renderer/consts";
 
 /**
  * A custom element for rendering editable characters.
@@ -65,6 +66,10 @@ export default class Character implements RenderElement {
     this.model.use();
   }
 
+  rotateY(rad: number) {
+    GLM.mat4.rotateY(this.instance.transform, this.instance.transform, rad);
+  }
+
   setCamera(camera: Camera) {
     this.model.setCamera(camera);
   }
@@ -79,7 +84,35 @@ export default class Character implements RenderElement {
     };
   }
 
+  setJointTranslation(name: string, translation: GLM.vec3) {
+    const nodeIndex = this.model.nodeLookup[name];
+    assert(nodeIndex !== undefined, `unknown node: "${name}"`);
+
+    const offset = TRS_SIZE * nodeIndex;
+    this.instance.trs.set(translation, offset);
+  }
+
   translate(v: GLM.vec3) {
     GLM.mat4.translate(this.instance.transform, this.instance.transform, v);
+  }
+
+  translateJoint(name: string, v: GLM.vec3) {
+    const nodeIndex = this.model.nodeLookup[name];
+    assert(nodeIndex !== undefined, `unknown node: "${name}"`);
+
+    const offset = TRS_SIZE * nodeIndex;
+    const joint = this.instance.trs.subarray(offset, offset + VEC3_FLOAT_SIZE) as GLM.vec3;
+    GLM.vec3.add(joint, joint, v);
+
+    this.instance.updateTransforms();
+    this.instance.computeSkinningMatrix();
+  }
+
+  updateTransforms() {
+    this.instance.updateTransforms();
+  }
+
+  computeSkinningMatrix() {
+    this.instance.computeSkinningMatrix();
   }
 }

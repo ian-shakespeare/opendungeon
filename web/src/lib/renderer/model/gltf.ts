@@ -163,11 +163,17 @@ export async function getGLTFModelParams(
   const defaultScene = scenes[scene];
   assert(!!defaultScene, "default scene is required");
 
+  const nodeLookup: Record<string, number> = {};
   const transforms = new Float32Array(MAT4_FLOAT_SIZE * nodes.length);
   const trsTransforms = new Float32Array(TRS_SIZE * nodes.length);
   const loadedNodes: Node[] = [];
   for (let i = 0; i < nodes.length; i++) {
     const node = nodes[i];
+
+    if (node.name) {
+      nodeLookup[node.name] = i;
+    }
+
     if (node.matrix) {
       const rotation = GLM.vec4.create();
       const translation = GLM.vec3.create();
@@ -262,6 +268,7 @@ export async function getGLTFModelParams(
     trsTransforms,
     transforms,
     instanceBuffer,
+    nodeLookup,
   };
 }
 

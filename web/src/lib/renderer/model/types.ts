@@ -254,6 +254,7 @@ export type ModelParameters = {
   animations?: Record<string, Animation>;
   skins?: Skin[];
   trsTransforms?: Float32Array;
+  nodeLookup?: Record<string, number>;
 
   // specific to static models
   transforms?: Float32Array;

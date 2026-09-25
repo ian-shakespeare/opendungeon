@@ -26,7 +26,10 @@ export async function loadStaticGLB(gl: WebGL2RenderingContext, blob: Blob): Pro
   const buffer = await blob.arrayBuffer();
   const { source, data } = getGLBChunks(buffer);
   const shader = buildGLTFStaticShader(gl, source.meshes);
-  const params = await getGLTFModelParams(shader, source, { preloadedBuffers: [data] });
+  const params = await getGLTFModelParams(shader, source, {
+    instanced: true,
+    preloadedBuffers: [data],
+  });
   return new StaticModel(params);
 }
 

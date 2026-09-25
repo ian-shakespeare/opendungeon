@@ -26,6 +26,7 @@ export default class DynamicModel implements RenderElement {
   readonly roots: number[];
   readonly skins: Skin[];
   private textures: WebGLTexture[];
+  readonly nodeLookup: Record<string, number>;
 
   readonly baseTRS: Float32Array;
   private instances: ModelInstance[];
@@ -43,6 +44,7 @@ export default class DynamicModel implements RenderElement {
     roots,
     skins,
     trsTransforms,
+    nodeLookup,
   }: ModelParameters) {
     if (!trsTransforms) {
       throw new Error("missing required parameter: trsTransforms");
@@ -57,6 +59,7 @@ export default class DynamicModel implements RenderElement {
     this.textures = textures;
     this.roots = roots;
     this.skins = skins ?? [];
+    this.nodeLookup = nodeLookup ?? {};
     this.baseTRS = trsTransforms;
     this.instances = [];
   }
