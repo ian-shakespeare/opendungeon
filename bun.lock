@@ -38,6 +38,18 @@
         "vitest-browser-svelte": "^2.2.1",
       },
     },
+    "packages/odecs": {
+      "name": "odecs",
+      "dependencies": {
+        "result": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/bun": "latest",
+      },
+      "peerDependencies": {
+        "typescript": "^7",
+      },
+    },
     "packages/odr": {
       "name": "odr",
       "dependencies": {
@@ -460,6 +472,8 @@
     "natural-compare": ["natural-compare@1.4.0", "", {}, "sha512-OWND8ei3VtNC9h7V60qff3SVobHr996CTwgxubgyQYEpg290h9J0buyECNNJexkFm5sOajh5G116RYA1c8ZMSw=="],
 
     "obug": ["obug@2.2.1", "", {}, "sha512-XrsrhT5sybtKI6wakr2SPOlGZWWYbUXZ7a0jT8/QOeAPau+1X/bSegNe5YR75oJmEZQbKningirmGOEJCIk61Q=="],
+
+    "odecs": ["odecs@workspace:packages/odecs"],
 
     "odr": ["odr@workspace:packages/odr"],
 
