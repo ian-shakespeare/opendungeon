@@ -1,5 +1,5 @@
 import { VALKEY_USER, VALKEY_PASSWORD, VALKEY_HOST } from "$app/env/private";
-import type { KeyStore } from "#lib/server/keystore/index.js";
+import type { KeyStore, SetOptions } from "#lib/server/keystore/index.js";
 import { RedisClient } from "bun";
 
 export default class ValkeyKeyStore implements KeyStore {
@@ -44,8 +44,12 @@ export default class ValkeyKeyStore implements KeyStore {
     return await this.client.get(key);
   }
 
-  async set(key: string, value: string) {
-    await this.client.set(key, value);
+  async set(key: string, value: string, options?: SetOptions) {
+    if (options?.ttl) {
+      await this.client.set(key, value, "EX", options.ttl);
+    } else {
+      await this.client.set(key, value);
+    }
   }
 
   async delete(key: string) {
