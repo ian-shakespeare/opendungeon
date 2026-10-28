@@ -13,12 +13,12 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
 
   const { id: gameId } = params;
 
-  const player = await gamerooms.getGamePlayer(gameId, session.user_id);
-  if (!player) {
-    error(404, "Player not found.");
+  const state = await gamerooms.getGame(gameId);
+  if (!state) {
+    error(404, "Game not found.");
   }
 
-  if (player.permissionLevel !== "game_master") {
+  if (session.user_id !== state.gameMaster.userId) {
     error(403, "Players may not load levels.");
   }
 

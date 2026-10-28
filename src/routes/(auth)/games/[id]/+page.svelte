@@ -29,7 +29,7 @@
   import Animator from "#lib/animator.js";
   import type { LevelData } from "#lib/server/database/levels.js";
   import { ServerMessageType, type ServerMessage } from "#lib/messages.js";
-  import type { GamePlayer, GameState } from "#lib/server/gamerooms.js";
+  import type { GameState } from "#lib/server/gamerooms.js";
   import decorations from "#lib/assets/decorations.json";
   import cellTextures from "#lib/assets/celltextures.json";
   import assert from "#lib/assert.js";
@@ -42,18 +42,7 @@
 
   let canvas = $state<HTMLCanvasElement>();
   let isGameMaster = $derived(data.profile && data.profile.user_id === data.game.game_master_id);
-  let players: Record<string, Omit<GamePlayer, "userId">> = $derived(
-    Object.fromEntries(
-      data.game.players.map((p) => [
-        p.user_id,
-        {
-          username: p.username,
-          avatarUri: p.avatar_uri,
-          permissionLevel: p.permission_level,
-        },
-      ]),
-    ),
-  );
+  let players = $derived(data.state.players);
   let messages: GameMessage[] = $state([]);
   let loadingCount = $state(1);
   let showLeftMenu = $state(true);
@@ -119,7 +108,10 @@
             return;
           }
 
-          const player = players[message.senderId];
+          const player =
+            message.senderId === data.game.game_master_id
+              ? data.state.gameMaster
+              : players[message.senderId];
           if (!player) {
             console.error("failing to receive message");
             return;
@@ -142,7 +134,8 @@
             [message.userId]: {
               username: message.username,
               avatarUri: message.avatarUri,
-              permissionLevel: message.permissionLevel,
+              color: message.color,
+              online: true,
             },
           };
 
@@ -410,14 +403,7 @@
       }),
     );
 
-    players = {
-      ...state.players,
-      [data.profile.user_id]: {
-        username: data.profile.username,
-        avatarUri: data.profile.avatar_uri,
-        permissionLevel: isGameMaster ? "game_master" : "player",
-      },
-    };
+    players = state.players;
   }
 
   async function handleSendLoadLevel(levelId: string) {
@@ -761,7 +747,6 @@
       {players}
       {messages}
       friends={data.friends}
-      characters={data.characters}
       handleLoadLevel={handleSendLoadLevel}
       {handleSendChatMessage}
       {handleLeaveGame}

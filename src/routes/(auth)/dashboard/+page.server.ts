@@ -34,13 +34,29 @@ export const actions = {
       return fail(400, { name, missing: true });
     }
 
+    const profile = await getProfile(session.user_id);
+    if (!profile) {
+      redirect(303, "/profile/new");
+    }
+
     const game = await createGame(
       session.user_id,
       name,
       "games/00000000-0000-0000-0000-000000000000.json",
     );
     await createPlayer(game.game_id, session.user_id, "game_master");
-    await gamerooms.createGame(game.game_id);
+    await gamerooms.createGame(game.game_id, {
+      characters: {},
+      levelUri: null,
+      gameMaster: {
+        userId: session.user_id,
+        username: profile.username,
+        avatarUri: profile.avatar_uri,
+        online: false,
+      },
+      players: {},
+      lastDisconnect: Date.now(),
+    });
     return { success: true, gameId: game.game_id };
   },
   deletegame: async ({ locals, request }) => {
