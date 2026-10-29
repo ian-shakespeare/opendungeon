@@ -4,7 +4,7 @@ import { deleteLevel, listUserLevels } from "#lib/server/database/levels.js";
 import { getProfile } from "#lib/server/database/profiles.js";
 import { fail, redirect, type Actions } from "@sveltejs/kit";
 import { files } from "#lib/server/files/index.js";
-import { gamerooms } from "#lib/server/gamerooms.js";
+import { games, GameServer } from "#lib/server/games.js";
 import { createPlayer } from "#lib/server/database/players.js";
 import { listFriendProfiles } from "#lib/server/database/friends.js";
 
@@ -44,19 +44,19 @@ export const actions = {
       name,
       "games/00000000-0000-0000-0000-000000000000.json",
     );
-    await createPlayer(game.game_id, session.user_id, "game_master");
-    await gamerooms.createGame(game.game_id, {
-      characters: {},
-      levelUri: null,
-      gameMaster: {
-        userId: session.user_id,
-        username: profile.username,
-        avatarUri: profile.avatar_uri,
-        online: false,
-      },
-      players: {},
-      lastDisconnect: Date.now(),
+    const [, gameServer] = await Promise.all([
+      createPlayer(game.game_id, session.user_id, "game_master"),
+      GameServer.start(game.game_id),
+    ]);
+    await gameServer.addPlayer({
+      isGameMaster: true,
+      userId: session.user_id,
+      username: profile.username,
+      avatarUri: profile.avatar_uri,
+      online: false,
     });
+
+    games[game.game_id] = gameServer;
     return { success: true, gameId: game.game_id };
   },
   deletegame: async ({ locals, request }) => {
@@ -96,14 +96,19 @@ export const actions = {
       return fail(400, { userId, missing: true });
     }
 
-    const player = await createPlayer(gameId, userId, "player");
+    await createPlayer(gameId, userId, "player");
 
-    await gamerooms.addGamePlayer(gameId, {
-      userId,
-      username: playerProfile.username,
-      avatarUri: playerProfile.avatar_uri,
-      permissionLevel: player.permission_level,
-    });
+    const game = games[gameId];
+    if (game) {
+      await game.addPlayer({
+        isGameMaster: false,
+        username: playerProfile.username,
+        avatarUri: playerProfile.avatar_uri,
+        color: "orange", // GET ACTUAL COLOR
+        online: false,
+        userId,
+      });
+    }
     return { success: true };
   },
   deletelevel: async ({ locals, request }) => {

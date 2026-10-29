@@ -5,10 +5,9 @@
   import { getInitials } from "#lib/utils.js";
   import { GameMenuTab } from "#lib/game/index.js";
   import type { Level } from "#lib/server/database/levels.js";
-  import type { GamePlayer } from "#lib/server/gamerooms.js";
+  import type { GamePlayer } from "#lib/server/games.js";
   import type { FriendProfile } from "#lib/server/database/friends.js";
   import ProfileList from "#lib/components/ProfileList.svelte";
-  import type { GameWithPlayerProfiles } from "#lib/server/database/games.js";
 
   const menuTabs = [
     { title: "Chat", tab: GameMenuTab.Chat },
@@ -19,7 +18,7 @@
   ];
 
   type Props = {
-    game: GameWithPlayerProfiles;
+    gameId: string;
     isGameMaster: boolean;
     messages: GameMessage[];
     levels: Level[];
@@ -32,7 +31,7 @@
   };
 
   let {
-    game,
+    gameId,
     isGameMaster,
     messages,
     levels,
@@ -172,11 +171,9 @@
         </div>
         {#if isGameMaster}
           <ProfileList
-            profiles={friends.filter(
-              (friend) => !game.players.find((p) => p.user_id === friend.user_id),
-            )}
+            profiles={friends.filter((friend) => !players[friend.user_id])}
             emptyText="No friends to add..."
-            activeGameId={game.game_id}
+            activeGameId={gameId}
             actions={[
               {
                 icon: "akar-icons:circle-check-fill",
@@ -211,7 +208,6 @@
     {/if}
     {#if selectedTab === GameMenuTab.Settings}
       <div class="flex flex-col gap-4 p-4">
-        <h3 class="w-full self-center text-2xl wrap-break-word">{game.name}</h3>
         <button
           class="size-full cursor-pointer rounded-md bg-aurora-gray-1100 py-3 text-white duration-100 hover:bg-aurora-gray-1000 active:bg-aurora-gray-900"
           onclick={handleLeaveGame}>Leave Game</button

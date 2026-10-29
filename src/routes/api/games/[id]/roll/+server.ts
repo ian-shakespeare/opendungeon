@@ -1,6 +1,6 @@
 import { error, redirect } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
-import { gamerooms } from "#lib/server/gamerooms.js";
+import { games } from "#lib/server/games.js";
 import { ServerMessageType, type DiceRolled } from "#lib/messages.js";
 import { DiceRoller } from "#lib/diceroller.js";
 
@@ -13,6 +13,11 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
   }
 
   const { id: gameId } = params;
+  const game = games[gameId];
+  if (!game) {
+    error(404, "Game not found.");
+  }
+
   const { rollString }: { rollString: string } = await request.json();
 
   const [, roll] = rollString.split(ROLL_PREFIX);
@@ -33,7 +38,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     userId: session.user_id,
     ...evaluation.value,
   };
-  await gamerooms.publish(gameId, message);
+  await game.publish(message);
 
   return new Response(null, { status: 204 });
 };

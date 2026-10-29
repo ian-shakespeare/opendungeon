@@ -1,9 +1,9 @@
 import { error, redirect } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
-import { gamerooms } from "#lib/server/gamerooms.js";
 import { getProfile } from "#lib/server/database/profiles.js";
 import { ServerMessageType, type PlayerLeft, type ServerMessage } from "#lib/messages.js";
 import { getPlayer } from "#lib/server/database/players.js";
+import { games, type GamePlayer } from "#lib/server/games.js";
 
 export const GET: RequestHandler = async ({ locals, params }) => {
   const { session } = locals;
@@ -13,10 +13,15 @@ export const GET: RequestHandler = async ({ locals, params }) => {
 
   const { id: gameId } = params;
 
+  const game = games[gameId];
+  if (!game) {
+    error(404, "Game not found.");
+  }
+
   const [profile, player, state] = await Promise.all([
     getProfile(session.user_id),
     getPlayer(gameId, session.user_id),
-    gamerooms.getGame(gameId),
+    game.getState(),
   ]);
   if (!profile) {
     error(404, "Profile not found");
@@ -24,62 +29,42 @@ export const GET: RequestHandler = async ({ locals, params }) => {
   if (!player) {
     error(404, "Player not found");
   }
-  if (!state) {
-    error(404, "Game not found");
-  }
 
-  const isGameMaster = state.gameMaster.userId === session.user_id;
+  const gamePlayer = state.players[session.user_id];
 
   let unsubscribe: () => void;
 
+  // TODO: this should just be game.join & game.leave
   const stream = new ReadableStream({
     async start(controller) {
-      unsubscribe = await gamerooms.subscribe(gameId, (message) => {
+      unsubscribe = await game.subscribe((message) => {
         controller.enqueue(`data: ${JSON.stringify(message)}\n\n`);
       });
 
-      const message: ServerMessage = isGameMaster
-        ? await (async () => {
-            await gamerooms.updateGameMaster(gameId, true);
-            return {
-              type: ServerMessageType.GameMasterJoined,
-              userId: session.user_id,
-              username: profile.username,
-              avatarUri: profile.avatar_uri,
-            };
-          })()
-        : await (async () => {
-            const playerState = state.players[session.user_id];
-            if (!playerState) {
-              throw new Error("Player tried to join without being part of game.");
-            }
+      const playerState = state.players[session.user_id];
+      if (!playerState) {
+        throw new Error("Player tried to join without being part of game.");
+      }
 
-            await gamerooms.updateGamePlayer(gameId, session.user_id, true);
-            return {
-              type: ServerMessageType.PlayerJoined,
-              userId: profile.user_id,
-              username: profile.username,
-              avatarUri: profile.avatar_uri,
-              color: playerState.color,
-            };
-          })();
+      await game.updatePlayer(session.user_id, true);
+      const message: ServerMessage = {
+        type: ServerMessageType.PlayerJoined,
+        ...(gamePlayer as unknown as GamePlayer),
+        userId: session.user_id,
+      };
 
-      await gamerooms.publish(gameId, message);
+      await game.publish(message);
     },
     async cancel() {
       unsubscribe();
 
-      if (isGameMaster) {
-        await gamerooms.updateGameMaster(gameId, false);
-      } else {
-        await gamerooms.updateGamePlayer(gameId, session.user_id, false);
-      }
+      await game.updatePlayer(session.user_id, false);
 
       const message: PlayerLeft = {
         type: ServerMessageType.PlayerLeft,
         userId: session.user_id,
       };
-      await gamerooms.publish(gameId, message);
+      await game.publish(message);
     },
   });
 

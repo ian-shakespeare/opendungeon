@@ -1,5 +1,5 @@
 import type { LevelData } from "#lib/server/database/levels.js";
-import type { GameState, PlayerColor } from "#lib/server/gamerooms.js";
+import type { GamePlayer, GameState } from "#lib/server/games.js";
 
 /**
  * A message sent by the server.
@@ -13,8 +13,7 @@ export type ServerMessage =
   | CharacterMoved
   | DataSynced
   | MapPinged
-  | DiceRolled
-  | GameMasterJoined;
+  | DiceRolled;
 
 export enum ServerMessageType {
   PlayerJoined = 0,
@@ -26,16 +25,11 @@ export enum ServerMessageType {
   DataSynced,
   MapPinged,
   DiceRolled,
-  GameMasterJoined,
 }
 
 export type PlayerJoined = {
   type: ServerMessageType.PlayerJoined;
-  userId: string;
-  username: string;
-  avatarUri: string | null;
-  color: PlayerColor;
-};
+} & GamePlayer;
 
 export type PlayerLeft = {
   type: ServerMessageType.PlayerLeft;
@@ -87,11 +81,4 @@ export type DiceRolled = {
   userId: string;
   total: number;
   rolls: number[];
-};
-
-export type GameMasterJoined = {
-  type: ServerMessageType.GameMasterJoined;
-  userId: string;
-  username: string;
-  avatarUri: string | null;
 };

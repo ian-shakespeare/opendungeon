@@ -28,8 +28,8 @@
   import GameToolMenu from "#lib/components/GameToolMenu.svelte";
   import Animator from "#lib/animator.js";
   import type { LevelData } from "#lib/server/database/levels.js";
-  import { ServerMessageType, type ServerMessage } from "#lib/messages.js";
-  import type { GameState } from "#lib/server/gamerooms.js";
+  import { ServerMessageType, type PlayerJoined, type ServerMessage } from "#lib/messages.js";
+  import type { GameState } from "#lib/server/games.js";
   import decorations from "#lib/assets/decorations.json";
   import cellTextures from "#lib/assets/celltextures.json";
   import assert from "#lib/assert.js";
@@ -38,10 +38,10 @@
   import GameWindow from "#lib/components/GameWindow.svelte";
   import Rectangle from "#lib/rectangle.js";
 
-  let { data }: PageProps = $props();
+  let { data, params }: PageProps = $props();
 
   let canvas = $state<HTMLCanvasElement>();
-  let isGameMaster = $derived(data.profile && data.profile.user_id === data.game.game_master_id);
+  let isGameMaster = $derived(data.state.players[data.profile.user_id].isGameMaster);
   let players = $derived(data.state.players);
   let messages: GameMessage[] = $state([]);
   let loadingCount = $state(1);
@@ -97,7 +97,7 @@
     tileId = renderer.createElement(Tile);
     renderer.loadTexture("system.plain", new Texture(1, 1)).then(() => loadingCount--);
 
-    const eventSource = new EventSource(`/api/games/${data.game.game_id}/stream`);
+    const eventSource = new EventSource(`/api/games/${params.id}/stream`);
 
     eventSource.onmessage = async (event) => {
       const message: ServerMessage = JSON.parse(event.data);
@@ -108,10 +108,7 @@
             return;
           }
 
-          const player =
-            message.senderId === data.game.game_master_id
-              ? data.state.gameMaster
-              : players[message.senderId];
+          const player = players[message.senderId];
           if (!player) {
             console.error("failing to receive message");
             return;
@@ -129,14 +126,12 @@
             return;
           }
 
+          const player: Omit<PlayerJoined, "type"> & Partial<Pick<PlayerJoined, "type">> = message;
+          delete player["type"];
+
           players = {
             ...players,
-            [message.userId]: {
-              username: message.username,
-              avatarUri: message.avatarUri,
-              color: message.color,
-              online: true,
-            },
+            [message.userId]: player,
           };
 
           messages.push({ content: `${message.username} has joined the game.` });
@@ -205,7 +200,7 @@
       }
     };
 
-    fetch(`/api/games/${data.game.game_id}`).then(async (response) => {
+    fetch(`/api/games/${params.id}`).then(async (response) => {
       if (!response.ok) {
         // TODO: handle this
         console.error("failed to get game state");
@@ -221,7 +216,7 @@
     // re-sync every 30 seconds as a backup
     const syncItrv = setInterval(async () => {
       console.info("Resyncing...");
-      const response = await fetch(`/api/games/${data.game.game_id}`);
+      const response = await fetch(`/api/games/${params.id}`);
       if (!response.ok) {
         console.error("failed to sync");
         return;
@@ -407,7 +402,7 @@
   }
 
   async function handleSendLoadLevel(levelId: string) {
-    const res = await fetch(`/api/games/${data.game.game_id}/level`, {
+    const res = await fetch(`/api/games/${params.id}/level`, {
       method: "PUT",
       body: JSON.stringify({ levelId }),
     });
@@ -431,7 +426,7 @@
       content: message,
     });
 
-    const res = await fetch(`/api/games/${data.game.game_id}/chat`, {
+    const res = await fetch(`/api/games/${params.id}/chat`, {
       method: "POST",
       body: JSON.stringify({ content: message }),
     });
@@ -444,7 +439,7 @@
     }
 
     if (message.startsWith("/roll")) {
-      const res = await fetch(`/api/games/${data.game.game_id}/roll`, {
+      const res = await fetch(`/api/games/${params.id}/roll`, {
         method: "POST",
         body: JSON.stringify({
           rollString: message,
@@ -581,7 +576,7 @@
   }
 
   async function handleSendLoadCharacter(characterId: string) {
-    const res = await fetch(`/api/games/${data.game.game_id}/characters`, {
+    const res = await fetch(`/api/games/${params.id}/characters`, {
       method: "POST",
       body: JSON.stringify({ x: 0, y: 0, characterId }),
     });
@@ -688,7 +683,7 @@
     const coord = new Cartesian(x, y).round().scale(0.5).floor().scale(2.0);
     handlePlayPing(coord);
 
-    const res = await fetch(`/api/games/${data.game.game_id}/pings`, {
+    const res = await fetch(`/api/games/${params.id}/pings`, {
       method: "POST",
       body: JSON.stringify({ x: coord.x, y: coord.y }),
     });
@@ -741,7 +736,7 @@
   {/if}
   {#if showRightMenu}
     <GameMenu
-      game={data.game}
+      gameId={params.id}
       isGameMaster={isGameMaster === true}
       levels={data.levels}
       {players}
