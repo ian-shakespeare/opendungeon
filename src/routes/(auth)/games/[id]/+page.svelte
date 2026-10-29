@@ -49,6 +49,10 @@
   let showRightMenu = $state(true);
   let toolData = $state(new GameTools());
   let measureText = $state<HTMLDivElement>();
+  let selectedCharacterId = $state<string | null>(null);
+  let levelUri = $state<string | null>(null);
+  let isDraggingCharacter = $state(false);
+
   let pingIdHandle = 0;
   let pings: Record<number, { point: Cartesian; opacity: number }> = {};
   let characters: {
@@ -58,7 +62,6 @@
   let renderer: Renderer;
   let camera: Camera;
   let animator = new Animator();
-  let levelUri: string | null; // needed for de-duping
   let levelData: LevelData | null;
   let input: { type: "none" } | { type: "dragging"; button: number } = { type: "none" };
   let tileId: number;
@@ -129,25 +132,27 @@
           const player: Omit<PlayerJoined, "type"> & Partial<Pick<PlayerJoined, "type">> = message;
           delete player["type"];
 
-          players = {
-            ...players,
-            [message.userId]: player,
-          };
+          if (!Object.hasOwn(players, message.userId)) {
+            players = {
+              ...players,
+              [message.userId]: player,
+            };
+          }
 
-          messages.push({ content: `${message.username} has joined the game.` });
+          if (player.online) {
+            messages.push({ content: `${message.username} has joined the game.` });
+          }
           break;
         }
         case ServerMessageType.PlayerLeft: {
-          const { [message.userId]: player, ...rest } = players;
-          if (player) {
-            messages.push({ content: `${player.username} has left the game.` });
+          if (Object.hasOwn(players, message.userId)) {
+            players[message.userId].online = false;
           }
-          players = rest;
 
           break;
         }
         case ServerMessageType.CharacterLoaded: {
-          await handleLoadCharacter(message.uri, message.x, message.y);
+          await handleLoadCharacter(message.x, message.y, message.rot);
           break;
         }
         case ServerMessageType.CharacterMoved: {
@@ -393,8 +398,8 @@
     }
 
     await Promise.all(
-      Object.values(state.characters ?? {}).map(({ uri, x, y }) => {
-        return handleLoadCharacter(uri, x, y);
+      Object.values(state.characters ?? {}).map(({ x, y, rot }) => {
+        return handleLoadCharacter(x, y, rot);
       }),
     );
 
@@ -467,12 +472,21 @@
     dragStartCoord = new Cartesian(x, y).round();
   }
 
-  function handleRelease() {
+  function handleRelease(event: MouseEvent) {
     if (input.type === "dragging") {
       input = { type: "none" };
       dragStartCoord = null;
       dragCurrentCoord = null;
       toolData.measure = { ...toolData.measure, cells: [], distance: 0, lineTransform: null };
+    }
+
+    if (isDraggingCharacter) {
+      const coord = renderer.canvasCoordToWorldCoord(camera, event.x, event.y);
+      const { x, y } = new Cartesian(coord.x, coord.y).round();
+      handleSendLoadCharacter(x, y, 0).then((characterId) => {
+        selectedCharacterId = characterId;
+      });
+      isDraggingCharacter = false;
     }
   }
 
@@ -557,15 +571,16 @@
     );
   }
 
-  async function handleLoadCharacter(uri: string, x: number, y: number) {
+  async function handleLoadCharacter(x: number, y: number, rot = 0) {
     const modelId = expect(
-      await renderer.createDynamicGLBElement("/api/media/" + uri),
+      await renderer.createDynamicGLBElement("/human.male.glb"),
       "Failed to get model element ID.",
     );
     const model = renderer.getElement<DynamicModel>(modelId);
     const instance = model.createInstance();
     const transform = GLM.mat4.create();
     GLM.mat4.translate(transform, transform, GLM.vec3.fromValues(x, y, 0));
+    GLM.mat4.rotateZ(transform, transform, rot);
     instance.transform = transform;
     instance.updateTransforms();
     instance.computeSkinningMatrix();
@@ -575,14 +590,18 @@
     });
   }
 
-  async function handleSendLoadCharacter(characterId: string) {
+  async function handleSendLoadCharacter(x: number, y: number, rot = 0) {
+    const characterId = crypto.randomUUID();
     const res = await fetch(`/api/games/${params.id}/characters`, {
       method: "POST",
-      body: JSON.stringify({ x: 0, y: 0, characterId }),
+      body: JSON.stringify({ x, y, rot, characterId }),
     });
     if (!res.ok) {
       console.error("failed to load character");
+      return null;
     }
+
+    return characterId;
   }
 
   async function handleLoadLevel(loadedLevel: LevelData) {
@@ -745,8 +764,23 @@
       handleLoadLevel={handleSendLoadLevel}
       {handleSendChatMessage}
       {handleLeaveGame}
-      {handleSendLoadCharacter}
     />
+  {/if}
+  {#if !selectedCharacterId && levelUri}
+    <button
+      onpointerup={(event) => {
+        if (event.button === MouseButton.Left) {
+          isDraggingCharacter = false;
+        }
+      }}
+      onpointerdown={(event) => {
+        if (event.button === MouseButton.Left) {
+          isDraggingCharacter = true;
+        }
+      }}
+    >
+      {isDraggingCharacter ? "Drop Anywhere On The Level" : "Drag This To Add Character To Level"}
+    </button>
   {/if}
   <div
     data-active={toolData.measure.cells.length > 0}
@@ -754,8 +788,8 @@
     class="pointer-events-none absolute z-10 hidden p-1 text-2xl font-bold text-red-600 data-[active=true]:flex"
   >
     <!-- TODO: support metric -->
-    <span class="text-shadow-aurora-gray-1400 text-shadow-sm"
-      >{toolData.measure.distance * 2.5 + "ft"}</span
-    >
+    <span class="text-shadow-aurora-gray-1400 text-shadow-sm">
+      {toolData.measure.distance * 2.5 + "ft"}
+    </span>
   </div>
 </main>

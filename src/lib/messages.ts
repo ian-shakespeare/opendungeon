@@ -55,6 +55,7 @@ export type CharacterLoaded = {
   uri: string;
   x: number;
   y: number;
+  rot: number;
 };
 
 export type CharacterMoved = {

@@ -27,7 +27,6 @@
     handleSendChatMessage: (event: SubmitEvent) => void;
     handleLoadLevel: (levelId: string) => void;
     handleLeaveGame: () => void;
-    handleSendLoadCharacter: (characterId: string) => void;
   };
 
   let {
@@ -149,7 +148,10 @@
         >
           <ul class="flex flex-col gap-4 overflow-y-auto">
             {#each Object.values(players) as player, i (i)}
-              <li class="flex flex-row items-center rounded-md bg-aurora-gray-1200 p-2 text-white">
+              <li
+                data-online={player.online}
+                class="flex flex-row items-center rounded-md bg-aurora-gray-1200 p-2 text-white data-[online=false]:opacity-50"
+              >
                 <div class="flex flex-row items-center gap-2">
                   <div
                     class="h-8 w-8 items-center rounded-full border-2 border-aurora-gray-600 bg-aurora-gray-1400 text-center"

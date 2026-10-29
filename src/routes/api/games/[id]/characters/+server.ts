@@ -40,6 +40,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
     characterId,
     x,
     y,
+    rot,
   };
   await game.publish(message);
 
