@@ -56,7 +56,7 @@ export const actions = {
       online: false,
     });
 
-    games[game.game_id] = gameServer;
+    games.add(game.game_id, gameServer);
     return { success: true, gameId: game.game_id };
   },
   deletegame: async ({ locals, request }) => {
@@ -98,7 +98,7 @@ export const actions = {
 
     await createPlayer(gameId, userId, "player");
 
-    const game = games[gameId];
+    const game = await games.get(gameId);
     if (game) {
       await game.addPlayer({
         isGameMaster: false,

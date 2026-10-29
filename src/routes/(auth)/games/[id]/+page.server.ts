@@ -14,7 +14,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 
   const { id: gameId } = params;
 
-  const game = games[gameId];
+  const game = await games.get(gameId);
   if (!game) {
     // TODO: start the game
 

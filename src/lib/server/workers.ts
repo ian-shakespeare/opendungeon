@@ -6,7 +6,7 @@ const MAX_GAME_IDLE_TIME = 5 * 60 * 1000;
 export async function cleanupIdleGames(): Promise<number> {
   let cleanupCount = 0;
 
-  for (const [gameId, game] of Object.entries(games)) {
+  for (const [gameId, game] of games) {
     const state = await game.getState();
     const lastDisconnect = !state ? 0 : state.lastDisconnect;
     const isLastDisconnectWithinLimit = lastDisconnect > Date.now() - MAX_GAME_IDLE_TIME;
@@ -29,7 +29,7 @@ export async function cleanupIdleGames(): Promise<number> {
     }
 
     await game.destroy();
-    delete games[gameId];
+    await games.delete(gameId);
     cleanupCount++;
   }
 

@@ -178,7 +178,12 @@
               {
                 icon: "akar-icons:circle-check-fill",
                 color: "text-success",
-                formAction: "addplayer",
+                formAction: (userId) => {
+                  fetch(`/api/games/${gameId}/players`, {
+                    method: "POST",
+                    body: JSON.stringify({ userId }),
+                  });
+                },
               },
             ]}
             label="Add Players"

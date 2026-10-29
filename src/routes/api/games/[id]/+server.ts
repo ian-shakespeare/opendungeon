@@ -10,7 +10,7 @@ export const GET: RequestHandler = async ({ locals, params }) => {
   }
 
   const { id: gameId } = params;
-  const game = games[gameId];
+  const game = await games.get(gameId);
   if (!game) {
     error(404, "Game not found.");
   }
