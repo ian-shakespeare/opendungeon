@@ -78,6 +78,7 @@
   > = {};
   let dragStartCoord: Cartesian | null = null;
   let dragCurrentCoord: Cartesian | null = null;
+  let cameraLocked = false;
 
   function getPingId() {
     const id = pingIdHandle;
@@ -223,7 +224,7 @@
       loadingCount--;
     });
 
-    // re-sync every 30 seconds as a backup
+    /* TODO re-sync every 30 seconds as a backup
     const syncItrv = setInterval(async () => {
       console.info("Resyncing...");
       const response = await fetch(`/api/games/${params.id}`);
@@ -238,9 +239,10 @@
       loadingCount--;
       console.info("Resynced.");
     }, 30_000);
+    */
 
     return () => {
-      clearInterval(syncItrv);
+      // clearInterval(syncItrv);
       eventSource.close();
     };
   });
@@ -256,7 +258,7 @@
 
     renderer.clear();
 
-    if (selectedCharacterId) {
+    if (selectedCharacterId && cameraLocked) {
       // focus camera on character
       const { instance } = characters[selectedCharacterId];
       const characterTranslation = GLM.vec3.create();
@@ -522,6 +524,7 @@
       const { x, y } = new Cartesian(coord.x, coord.y).round();
       handleSendLoadCharacter(x, y, 0).then((characterId) => {
         selectedCharacterId = characterId;
+        cameraLocked = true;
       });
       isDraggingCharacter = false;
     }
@@ -534,40 +537,8 @@
       const changedCell = !dragCurrentCoord?.isEqual(origin.round());
       dragCurrentCoord = origin.round();
 
-      if (input.button === MouseButton.Middle) {
-        if (!document.hasFocus()) {
-          console.warn("Cannot move unfocused window.");
-          return;
-        }
-
-        // measure world units per pixel by unprojecting two nearby screen points
-        // at the cursor location onto the z=0 plane
-        const oneRight = renderer.canvasCoordToWorldCoord(camera, event.x + 1, event.y);
-        const oneDown = renderer.canvasCoordToWorldCoord(camera, event.x, event.y + 1);
-
-        const worldPerPixelX = new Cartesian(oneRight.x, oneRight.y).subtract(origin);
-        const worldPerPixelY = new Cartesian(oneDown.x, oneDown.y).subtract(origin);
-
-        // camera basis vectors from the view matrix
-        const right = GLM.vec3.fromValues(camera.view[0], camera.view[4], camera.view[8]);
-        // "up on screen" projected onto the ground plane, so panning stays parallel to z=0 regardless of camera tilt
-        const upFlat = GLM.vec3.fromValues(camera.view[1], camera.view[5], 0);
-        GLM.vec3.normalize(right, right);
-        GLM.vec3.normalize(upFlat, upFlat);
-
-        // screen-forward magnitude of one pixel of drag, in world units
-        const pxX = GLM.vec2.length(GLM.vec2.fromValues(worldPerPixelX.x, worldPerPixelX.y));
-        const pxY = GLM.vec2.length(GLM.vec2.fromValues(worldPerPixelY.x, worldPerPixelY.y));
-
-        const dx = event.movementX * pxX;
-        const dy = -event.movementY * pxY;
-
-        const translation = GLM.vec3.create();
-        GLM.vec3.scaleAndAdd(translation, translation, right, dx);
-        GLM.vec3.scaleAndAdd(translation, translation, upFlat, dy);
-
-        camera?.translate(translation);
-      } else if (
+      // TODO: rework measure inputs
+      if (
         input.button === MouseButton.Left &&
         toolData.activeTool?.type === "measure" &&
         changedCell &&
@@ -657,7 +628,7 @@
     const to = new Cartesian(x, y);
 
     const path = aStar(from, to, (point: Cartesian) => {
-      return levelData?.grid[point.y][point.x]?.texture !== undefined;
+      return levelData?.grid[point.y]?.[point.x]?.texture !== undefined;
     });
     const duration = 0.25 * path.length;
 
@@ -763,7 +734,7 @@
 
     levelData = loadedLevel;
 
-    camera.zoom = 150;
+    camera.zoom = 15;
     const content = levelData.grid.filter((row) => row.filter((cell) => cell).length > 0);
     const minY = levelData.grid.indexOf(content[0]);
     const maxY = levelData.grid.indexOf(content.at(-1)!);
@@ -817,6 +788,20 @@
     onpointermove={handleMove}
     onwheel={handleScroll}
     ondblclick={handleDoubleClick}
+    ondbltap={(event) => {
+      if (event.key === " ") {
+        cameraLocked = true;
+      }
+    }}
+    onkeydown={(event) => {
+      switch (event.key) {
+        case "w":
+        case "a":
+        case "s":
+        case "d":
+          cameraLocked = false;
+      }
+    }}
     class="absolute inset-0 bg-black"
   />
   <button
