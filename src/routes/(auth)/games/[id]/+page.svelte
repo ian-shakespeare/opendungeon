@@ -35,11 +35,12 @@
   import assert from "#lib/assert.js";
   import { GameTools } from "#lib/game/gametools.svelte.js";
   import { expect, tryFetch, unwrap } from "result";
-  import GameWindow from "#lib/components/GameWindow.svelte";
+  import WebGLWindow from "#lib/components/WebGLWindow.svelte";
   import Rectangle from "#lib/rectangle.js";
   import { aStar } from "#lib/search.js";
 
   const PITCH = -degToRad(30);
+  const CAMERA_VELOCITY = 50;
 
   let { data, params }: PageProps = $props();
 
@@ -79,6 +80,10 @@
   let dragStartCoord: Cartesian | null = null;
   let dragCurrentCoord: Cartesian | null = null;
   let cameraLocked = false;
+  let holdingForward = false;
+  let holdingLeft = false;
+  let holdingBackward = false;
+  let holdingRight = false;
 
   function getPingId() {
     const id = pingIdHandle;
@@ -247,8 +252,32 @@
     };
   });
 
-  function tick(time: number) {
+  function tick(time: number, dt: number) {
     animator.tick(time);
+
+    if (!cameraLocked) {
+      let dx = 0;
+      if (holdingLeft) {
+        dx++;
+      }
+      if (holdingRight) {
+        dx--;
+      }
+
+      let dy = 0;
+      if (holdingForward) {
+        dy--;
+      }
+      if (holdingBackward) {
+        dy++;
+      }
+
+      if (dx != 0 || dy != 0) {
+        camera.translate(
+          GLM.vec3.fromValues(CAMERA_VELOCITY * dx * dt, CAMERA_VELOCITY * dy * dt, 0),
+        );
+      }
+    }
   }
 
   function draw() {
@@ -497,13 +526,11 @@
     input = { type: "none" };
   }
 
-  function handlePress(event: MouseEvent) {
-    input = { type: "dragging", button: event.button };
+  function handleLeftMouseDown(event: MouseEvent) {
     const { x, y } = renderer.canvasCoordToWorldCoord(camera, event.x, event.y);
     const rounded = new Cartesian(x, y).round();
-    dragStartCoord = rounded;
 
-    if (event.button === MouseButton.Left && selectedCharacterId) {
+    if (selectedCharacterId) {
       fetch(`/api/games/${params.id}/characters/${selectedCharacterId}`, {
         method: "PUT",
         body: JSON.stringify({ x: rounded.x, y: rounded.y, rot: 0 }),
@@ -630,7 +657,7 @@
     const path = aStar(from, to, (point: Cartesian) => {
       return levelData?.grid[point.y]?.[point.x]?.texture !== undefined;
     });
-    const duration = 0.25 * path.length;
+    const duration = 0.15 * path.length;
 
     const { instance } = characters[characterId];
     const anim = instance.model.animations["Run"];
@@ -755,7 +782,7 @@
     );
   }
 
-  async function handleDoubleClick(event: MouseEvent) {
+  async function handleMiddleMouseDown(event: MouseEvent) {
     event.preventDefault();
 
     if (!data.profile) {
@@ -777,17 +804,16 @@
 </script>
 
 <main class="relative grid h-dvh justify-start overflow-hidden">
-  <GameWindow
+  <WebGLWindow
     {draw}
     {tick}
     bind:canvas
     onpointerleave={handleClear}
-    onpointerdown={handlePress}
-    oncontextmenu={handlePress}
+    onleftmousedown={handleLeftMouseDown}
+    onmiddlemousedown={handleMiddleMouseDown}
     onpointerup={handleRelease}
     onpointermove={handleMove}
     onwheel={handleScroll}
-    ondblclick={handleDoubleClick}
     ondbltap={(event) => {
       if (event.key === " ") {
         cameraLocked = true;
@@ -795,11 +821,45 @@
     }}
     onkeydown={(event) => {
       switch (event.key) {
-        case "w":
-        case "a":
-        case "s":
-        case "d":
-          cameraLocked = false;
+        case "w": {
+          holdingForward = true;
+          break;
+        }
+        case "a": {
+          holdingLeft = true;
+          break;
+        }
+        case "s": {
+          holdingBackward = true;
+          break;
+        }
+        case "d": {
+          holdingRight = true;
+          break;
+        }
+        default:
+          return;
+      }
+      cameraLocked = false;
+    }}
+    onkeyup={(event) => {
+      switch (event.key) {
+        case "w": {
+          holdingForward = false;
+          break;
+        }
+        case "a": {
+          holdingLeft = false;
+          break;
+        }
+        case "s": {
+          holdingBackward = false;
+          break;
+        }
+        case "d": {
+          holdingRight = false;
+          break;
+        }
       }
     }}
     class="absolute inset-0 bg-black"
