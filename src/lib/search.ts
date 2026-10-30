@@ -9,13 +9,17 @@ interface Node {
 
 type IsAccessibleFunc<N> = (node: N) => boolean;
 
-export function aStar<N extends Node>(start: N, end: N, isAccessible: IsAccessibleFunc<N>): N[] {
+export function aStar<N extends Node>(
+  start: N,
+  end: N,
+  isAccessible: IsAccessibleFunc<N>,
+): { path: N[]; cost: number } {
   if (start.isEqual(end)) {
-    return [start];
+    return { path: [start], cost: 1 };
   }
 
   if (!isAccessible(end)) {
-    return [];
+    return { path: [], cost: -1 };
   }
 
   const frontier = new PriorityQueue<{ node: N; cost: number }>();
@@ -29,8 +33,9 @@ export function aStar<N extends Node>(start: N, end: N, isAccessible: IsAccessib
     const {
       value: { node: current, cost },
     } = frontier.pop()!;
+    const currentStr = current.toString();
 
-    const isMoreExpensive = cost > costSoFar.get(current.toString())!;
+    const isMoreExpensive = cost > costSoFar.get(currentStr)!;
     if (isMoreExpensive) {
       continue;
     }
@@ -42,7 +47,7 @@ export function aStar<N extends Node>(start: N, end: N, isAccessible: IsAccessib
         path.push(node);
         node = cameFrom.get(node.toString())!;
       }
-      return path.reverse();
+      return { path: path.reverse(), cost };
     }
 
     for (const next of current.getNeighbors()) {
@@ -51,7 +56,7 @@ export function aStar<N extends Node>(start: N, end: N, isAccessible: IsAccessib
       }
 
       const nextStr = next.toString();
-      const newCost = costSoFar.get(current.toString())! + current.distance(next);
+      const newCost = costSoFar.get(currentStr)! + current.distance(next);
       const heuristic = next.distance(end);
       if (!costSoFar.has(nextStr) || newCost < costSoFar.get(nextStr)!) {
         costSoFar.set(nextStr, newCost);
@@ -61,5 +66,5 @@ export function aStar<N extends Node>(start: N, end: N, isAccessible: IsAccessib
     }
   }
 
-  return [];
+  return { path: [], cost: -1 };
 }

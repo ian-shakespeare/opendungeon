@@ -1,6 +1,7 @@
 import { error, redirect } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
-import { games, PLAYER_COLORS, type PlayerColor } from "#lib/server/games.js";
+import { games } from "#lib/server/games.js";
+import { PLAYER_COLORS, type PlayerColor } from "#lib/colors.js";
 import { getProfile } from "#lib/server/database/profiles.js";
 
 export const POST: RequestHandler = async ({ locals, params, request }) => {

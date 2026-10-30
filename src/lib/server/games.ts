@@ -1,10 +1,13 @@
-import type { ServerMessage } from "#lib/messages.js";
+import { Level } from "#lib/level.js";
+import { ServerMessageType, type ServerMessage } from "#lib/messages.js";
+import { Cartesian } from "#lib/point.js";
 import { keystore as defaultKeystore, type KeyStore } from "#lib/server/keystore/index.js";
+import type { S3Client } from "bun";
 import type { PubSub } from "./pubsub";
-
-export const PLAYER_COLORS = ["orange", "yellow", "green", "aqua", "blue", "purple"] as const;
-
-export type PlayerColor = (typeof PLAYER_COLORS)[number];
+import { files as defaultFileStorage } from "./files";
+import { error, ok, type Result } from "result";
+import type { PlayerColor } from "#lib/colors.js";
+import type { LevelData } from "./database/levels";
 
 export type GamePlayer =
   | {
@@ -52,11 +55,15 @@ export class GameServer {
   private gameId: string;
   private keystore: KeyStore;
   private pubsub: PubSub;
+  private files: S3Client;
+  private level: Level | null;
 
-  private constructor(gameId: string, keystore: KeyStore, pubsub: PubSub) {
+  private constructor(gameId: string, keystore: KeyStore, pubsub: PubSub, files: S3Client) {
     this.gameId = gameId;
     this.keystore = keystore;
     this.pubsub = pubsub;
+    this.files = files;
+    this.level = null;
   }
 
   static async start(
@@ -64,9 +71,19 @@ export class GameServer {
     initialState = getInitialGameState(),
     keystore = defaultKeystore,
     pubsub = keystore as unknown as PubSub,
+    files = defaultFileStorage,
   ): Promise<GameServer> {
     await keystore.jsonSet(gameId, "$", initialState);
-    return new GameServer(gameId, keystore, pubsub);
+
+    const gs = new GameServer(gameId, keystore, pubsub, files);
+    if (initialState.levelUri) {
+      const data = await gs.uriToLevelData(initialState.levelUri);
+      if (data) {
+        gs.level = Level.load(data);
+      }
+    }
+
+    return gs;
   }
 
   async destroy() {
@@ -95,8 +112,26 @@ export class GameServer {
     return state as GameState;
   }
 
-  async setLevelUri(levelUri: string) {
-    await this.keystore.jsonSet(this.gameId, "$.levelUri", levelUri);
+  async setLevelUri(levelUri: string): Promise<Result<void, string>> {
+    await Promise.all([
+      this.keystore.jsonSet(this.gameId, "$.levelUri", levelUri),
+      this.keystore.jsonSet(this.gameId, "$.characters", {}),
+    ]);
+
+    const data = await this.uriToLevelData(levelUri);
+    if (!data) {
+      return error("Level data not found.");
+    }
+    this.level = Level.load(data);
+
+    const message: ServerMessage = {
+      type: ServerMessageType.LevelLoaded,
+      name: "TODO: set this",
+      data,
+    };
+    await this.pubsub.publish(this.gameId, JSON.stringify(message));
+
+    return ok(undefined);
   }
 
   // automatically determine color here
@@ -135,16 +170,48 @@ export class GameServer {
     return { ...character, characterId } as GameCharacter;
   }
 
-  async updateCharacter(
-    characterId: string,
-    { userId, x, y, rot }: Omit<GameCharacter, "characterId">,
-  ) {
-    await this.keystore.jsonSet(this.gameId, `$.characters.${characterId}`, {
-      userId,
+  async moveCharacter(characterId: string, x: number, y: number): Promise<Result<void, string>> {
+    console.log("moving character");
+
+    if (!this.level) {
+      return error("No active level.");
+    }
+
+    const character = await this.getCharacter(characterId);
+    if (!character) {
+      return error("Character not found.");
+    }
+
+    const path = this.level.shortestPath(
+      new Cartesian(character.x, character.y),
+      new Cartesian(x, y),
+    );
+    if (path.length === 0) {
+      return error("No valid path.");
+    }
+
+    await this.keystore.jsonSet(this.gameId, `$.characters.${characterId}`, { ...character, x, y });
+
+    const message: ServerMessage = {
+      type: ServerMessageType.CharacterMoved,
+      characterId,
       x,
       y,
-      rot,
-    });
+    };
+    await this.pubsub.publish(this.gameId, JSON.stringify(message));
+
+    return ok(undefined);
+  }
+
+  private async uriToLevelData(levelUri: string): Promise<LevelData | null> {
+    const file = this.files.file(levelUri!);
+    const exists = await file.exists();
+    if (!exists) {
+      return null;
+    }
+
+    const data = await file.json();
+    return data;
   }
 }
 

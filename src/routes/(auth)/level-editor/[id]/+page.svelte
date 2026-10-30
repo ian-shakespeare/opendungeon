@@ -700,9 +700,12 @@
     {draw}
     bind:canvas
     onpointerleave={handleClear}
-    onpointerdown={handlePress}
-    oncontextmenu={handlePress}
-    onpointerup={handleRelease}
+    onleftmousedown={handlePress}
+    onleftmouseup={handleRelease}
+    onmiddlemousedown={handlePress}
+    onmiddlemouseup={handleRelease}
+    onrightmousedown={handlePress}
+    onrightmouseup={handleRelease}
     onpointermove={handleMove}
     onwheel={handleScroll}
     class="absolute inset-0 bg-white"

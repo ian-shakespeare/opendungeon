@@ -12,10 +12,19 @@
     onleftmousedown?: (event: MouseEvent) => void;
     onmiddlemousedown?: (event: MouseEvent) => void;
     onrightmousedown?: (event: MouseEvent) => void;
+    onleftmouseup?: (event: MouseEvent) => void;
+    onmiddlemouseup?: (event: MouseEvent) => void;
+    onrightmouseup?: (event: MouseEvent) => void;
     canvas?: HTMLCanvasElement;
   } & Omit<
     HTMLCanvasAttributes,
-    "onkeydown" | "onkeyup" | "onpointerdown" | "onmousedown" | "oncontextmenu"
+    | "onkeydown"
+    | "onkeyup"
+    | "onpointerdown"
+    | "onmousedown"
+    | "oncontextmenu"
+    | "onpointerup"
+    | "onmouseup"
   >;
 
   let {
@@ -27,6 +36,9 @@
     onleftmousedown,
     onmiddlemousedown,
     onrightmousedown,
+    onleftmouseup,
+    onmiddlemouseup,
+    onrightmouseup,
     canvas = $bindable(),
     ...props
   }: Props = $props();
@@ -109,6 +121,22 @@
         break;
     }
   }
+
+  function handleMouseUp(event: MouseEvent) {
+    event.preventDefault();
+
+    switch (event.button) {
+      case MouseButton.Left:
+        onleftmouseup?.(event);
+        break;
+      case MouseButton.Middle:
+        onmiddlemouseup?.(event);
+        break;
+      case MouseButton.Right:
+        onrightmouseup?.(event);
+        break;
+    }
+  }
 </script>
 
 <svelte:window onkeydown={handleKeyDown} onkeyup={handleKeyUp} />
@@ -119,4 +147,6 @@
   onmousedown={handleMouseDown}
   onpointerdown={handleMouseDown}
   oncontextmenu={handleMouseDown}
+  onmouseup={handleMouseUp}
+  onpointerup={handleMouseUp}
 ></canvas>

@@ -1,9 +1,7 @@
 import { error, redirect } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 import { games } from "#lib/server/games.js";
-import { ServerMessageType, type LevelLoaded } from "#lib/messages.js";
-import { getUserLevel, type LevelData } from "#lib/server/database/levels.js";
-import { files } from "#lib/server/files/index.js";
+import { getUserLevel } from "#lib/server/database/levels.js";
 
 export const PUT: RequestHandler = async ({ locals, params, request }) => {
   const { session } = locals;
@@ -30,21 +28,10 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
     error(404, "Level not found.");
   }
 
-  const file = files.file(level.uri);
-  const exists = await file.exists();
-  if (!exists) {
-    error(404, "Level data not found.");
+  const res = await game.setLevelUri(level.uri);
+  if (!res.ok) {
+    error(400, res.error);
   }
-
-  const data: LevelData = await file.json();
-  await game.setLevelUri(level.uri);
-
-  const message: LevelLoaded = {
-    type: ServerMessageType.LevelLoaded,
-    name: level.name,
-    data,
-  };
-  await game.publish(message);
 
   return new Response(null, { status: 204 });
 };

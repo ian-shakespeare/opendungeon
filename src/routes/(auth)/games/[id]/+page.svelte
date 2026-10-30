@@ -1,13 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { type PageProps } from "./$types";
-  import {
-    GRID_HEIGHT,
-    GRID_WIDTH,
-    MAXIMUM_ZOOM,
-    MINIMUM_ZOOM,
-    type GameMessage,
-  } from "#lib/game/index.js";
+  import { GRID_WIDTH, MAXIMUM_ZOOM, MINIMUM_ZOOM, type GameMessage } from "#lib/game/index.js";
   import { MouseButton } from "#lib/controller.js";
   import {
     type Camera,
@@ -15,10 +9,8 @@
     ModelInstance,
     PerspectiveCamera,
     Renderer,
-    StaticModel,
     Texture,
   } from "odr";
-  import Tile from "#lib/tile.js";
   import { Cartesian, degToRad } from "#lib/point.js";
   import * as GLM from "gl-matrix";
   import Icon from "@iconify/svelte";
@@ -29,25 +21,24 @@
   import Animator from "#lib/animator.js";
   import type { LevelData } from "#lib/server/database/levels.js";
   import { ServerMessageType, type PlayerJoined, type ServerMessage } from "#lib/messages.js";
-  import type { GameState } from "#lib/server/games.js";
-  import decorations from "#lib/assets/decorations.json";
-  import cellTextures from "#lib/assets/celltextures.json";
-  import assert from "#lib/assert.js";
+  import { type GameState } from "#lib/server/games.js";
+  import { PLAYER_COLOR_HEX, PLAYER_COLOR_RGBA, type PlayerColor } from "#lib/colors.js";
   import { GameTools } from "#lib/game/gametools.svelte.js";
   import { expect, tryFetch, unwrap } from "result";
   import WebGLWindow from "#lib/components/WebGLWindow.svelte";
   import Rectangle from "#lib/rectangle.js";
-  import { aStar } from "#lib/search.js";
+  import { Level } from "#lib/level.js";
 
   const PITCH = -degToRad(30);
   const CAMERA_VELOCITY = 50;
+  const DEFAULT_ZOOM = 15;
 
   let { data, params }: PageProps = $props();
 
   let canvas = $state<HTMLCanvasElement>();
   let isGameMaster = $derived(data.state.players[data.profile.user_id].isGameMaster);
   let messages: GameMessage[] = $state([]);
-  let loadingCount = $state(1);
+  let loadingCount = $state(0);
   let showLeftMenu = $state(true);
   let showRightMenu = $state(true);
   let toolData = $state(new GameTools());
@@ -55,35 +46,26 @@
   let selectedCharacterId = $state<string | null>(null);
   let levelUri = $state<string | null>(null);
   let isDraggingCharacter = $state(false);
+  let cameraLocked = $state(false);
+  let movementLocked = $state(false);
+  let measurePath = $state<{ path: Cartesian[]; cost: number } | undefined>();
 
   let pingIdHandle = 0;
-  let pings: Record<number, { point: Cartesian; opacity: number }> = {};
-  let characters: Record<
-    string,
-    {
-      modelId: number;
-      instance: ModelInstance;
-    }
-  > = {};
+  let pings: Record<number, { userId: string; point: Cartesian; opacity: number }> = {};
+  let characterModelId: number;
+  let characterInstances: Record<string, ModelInstance> = {};
   let renderer: Renderer;
   let camera: Camera;
   let animator = new Animator();
-  let levelData: LevelData | null;
+  let level: Level | null = null;
   let input: { type: "none" } | { type: "dragging"; button: number } = { type: "none" };
-  let tileId: number;
   let rectId: number;
-  let decorationElementLookup: Record<string, number> = {};
-  let decorationDataLookup: Record<
-    string,
-    { x: number; y: number; rotation: number; scale: number }[]
-  > = {};
-  let dragStartCoord: Cartesian | null = null;
-  let dragCurrentCoord: Cartesian | null = null;
-  let cameraLocked = false;
   let holdingForward = false;
   let holdingLeft = false;
   let holdingBackward = false;
   let holdingRight = false;
+  let draggingCharacterId: number | undefined;
+  let isMeasuring = false;
 
   function getPingId() {
     const id = pingIdHandle;
@@ -108,8 +90,12 @@
     camera.translate(GLM.vec3.fromValues(-GRID_WIDTH / 2, 0, 0));
 
     rectId = renderer.createElement(Rectangle);
-    tileId = renderer.createElement(Tile);
+    loadingCount += 2;
     renderer.loadTexture("system.plain", new Texture(1, 1)).then(() => loadingCount--);
+    renderer.createDynamicGLBElement("/human.male.glb").then((res) => {
+      characterModelId = unwrap(res);
+      loadingCount--;
+    });
 
     const eventSource = new EventSource(`/api/games/${params.id}/stream`);
 
@@ -163,7 +149,13 @@
           break;
         }
         case ServerMessageType.CharacterLoaded: {
-          await handleLoadCharacter(message.characterId, message.x, message.y, message.rot);
+          await handleLoadCharacter(
+            message.userId,
+            message.characterId,
+            message.x,
+            message.y,
+            message.rot,
+          );
           break;
         }
         case ServerMessageType.CharacterMoved: {
@@ -173,6 +165,9 @@
         case ServerMessageType.LevelLoaded: {
           loadingCount++;
           try {
+            data.state.characters = {};
+            characterInstances = {};
+            renderer.getElement<DynamicModel>(characterModelId).clearInstances();
             await handleLoadLevel(message.data);
           } catch (e) {
             console.error(e);
@@ -185,8 +180,7 @@
           if (message.userId === data.profile.user_id) {
             return;
           }
-          // TODO: color the ping per player
-          handlePlayPing(new Cartesian(message.x, message.y));
+          handlePlayPing(message.userId, new Cartesian(message.x, message.y));
           break;
         }
         case ServerMessageType.DataSynced: {
@@ -252,6 +246,46 @@
     };
   });
 
+  function focusCameraOnPoint({ x, y }: { x: number; y: number }) {
+    const cameraWorld = GLM.mat4.create();
+    GLM.mat4.invert(cameraWorld, camera.view);
+
+    const cameraTranslation = GLM.vec3.create();
+    GLM.mat4.getTranslation(cameraTranslation, cameraWorld);
+
+    const forward = GLM.vec3.fromValues(0, 0, -1);
+    GLM.vec3.transformMat4(forward, forward, cameraWorld);
+    GLM.vec3.sub(forward, forward, cameraTranslation);
+    GLM.vec3.normalize(forward, forward);
+    const lookingAt = renderer.getRayWorldIntersect(cameraTranslation, forward);
+
+    const dx = x - lookingAt.x;
+    const dy = y - lookingAt.y;
+
+    camera.translate(GLM.vec3.fromValues(-dx, -dy, 0));
+  }
+
+  function getLineTransform(from: Cartesian, to: Cartesian): GLM.mat4 {
+    const difference = to.subtract(from);
+    const halfDifference = difference.scale(0.5);
+    const midpoint = from.add(halfDifference);
+    const length = Math.sqrt(difference.x * difference.x + difference.y * difference.y);
+    const theta = Math.atan(difference.y / difference.x);
+
+    const transform = GLM.mat4.create();
+    GLM.mat4.translate(transform, transform, GLM.vec3.fromValues(midpoint.x, midpoint.y, 0.2));
+    GLM.mat4.rotate(transform, transform, theta, GLM.vec3.fromValues(0, 0, 1));
+    GLM.mat4.scale(transform, transform, GLM.vec3.fromValues(length, 0.2 /* width */, 1));
+
+    return transform;
+  }
+
+  function getPlayerColor(userId: string): PlayerColor | "red" {
+    const player = data.state.players[userId];
+    const color = player.isGameMaster ? "red" : (player as unknown as { color: PlayerColor }).color;
+    return color;
+  }
+
   function tick(time: number, dt: number) {
     animator.tick(time);
 
@@ -281,7 +315,7 @@
   }
 
   function draw() {
-    if (!levelData || loadingCount >= 1) {
+    if (!level || loadingCount >= 1) {
       return;
     }
 
@@ -289,67 +323,16 @@
 
     if (selectedCharacterId && cameraLocked) {
       // focus camera on character
-      const { instance } = characters[selectedCharacterId];
-      const characterTranslation = GLM.vec3.create();
-      GLM.mat4.getTranslation(characterTranslation, instance.transform);
-
-      const cameraWorld = GLM.mat4.create();
-      GLM.mat4.invert(cameraWorld, camera.view);
-
-      const cameraTranslation = GLM.vec3.create();
-      GLM.mat4.getTranslation(cameraTranslation, cameraWorld);
-
-      const forward = GLM.vec3.fromValues(0, 0, -1);
-      GLM.vec3.transformMat4(forward, forward, cameraWorld);
-      GLM.vec3.sub(forward, forward, cameraTranslation);
-      GLM.vec3.normalize(forward, forward);
-      const lookingAt = renderer.getRayWorldIntersect(cameraTranslation, forward);
-
-      const dx = characterTranslation[0] - lookingAt.x;
-      const dy = characterTranslation[1] - lookingAt.y;
-
-      camera.translate(GLM.vec3.fromValues(-dx, -dy, 0));
-    }
-
-    const cellsByTexture: Record<number, Cartesian[]> = {};
-    for (let row = 0; row < levelData.grid.length; row++) {
-      for (let col = 0; col < levelData.grid[row].length; col++) {
-        const cell = levelData.grid[row][col];
-        if (!cell) {
-          continue;
-        }
-
-        const texture = cell.texture;
-        if (texture === undefined || texture === null) {
-          continue;
-        }
-
-        const point = new Cartesian(col, row);
-        if (cellsByTexture[texture] === undefined) {
-          cellsByTexture[texture] = [point];
-          continue;
-        }
-
-        cellsByTexture[texture].push(point);
+      const instance = characterInstances[selectedCharacterId];
+      if (instance) {
+        const characterTranslation = GLM.vec3.create();
+        GLM.mat4.getTranslation(characterTranslation, instance.transform);
+        const [x, y] = characterTranslation;
+        focusCameraOnPoint({ x, y });
       }
     }
 
-    // draw cells
-    const tile = renderer.getAndUseElement<Tile>(tileId);
-    tile.setCamera(camera);
-    for (const [textureIndex, coords] of Object.entries(cellsByTexture)) {
-      renderer.useTexture(levelData.textures[Number(textureIndex)]);
-      const buffer = tile.allocate(coords.length);
-      for (let i = 0; i < coords.length; i++) {
-        const offset = i * tile.instanceSize;
-        const model = GLM.mat4.create();
-        const coord = coords[i];
-        GLM.mat4.translate(model, model, GLM.vec3.fromValues(coord.x, coord.y, 0));
-        buffer.set(model, offset);
-        buffer.set(new Float32Array([1, 1, 1, 1]), offset + model.length);
-      }
-      tile.draw();
-    }
+    level.draw(renderer, camera);
 
     // draw pings
     const rect = renderer.getAndUseElement<Rectangle>(rectId);
@@ -359,14 +342,16 @@
       renderer.useTexture("system.plain");
       const buffer = rect.allocate(pingEntries.length);
       let offset = 0;
-      for (const [, { point, opacity }] of pingEntries) {
+      for (const [, { userId, point, opacity }] of pingEntries) {
         const model = GLM.mat4.create();
         GLM.mat4.translate(model, model, GLM.vec3.fromValues(point.x + 0.5, point.y + 0.5, 0.1));
         GLM.mat4.scale(model, model, GLM.vec3.fromValues(2, 2, 1));
-        const color = new Float32Array([1, 1, 1, opacity]);
+        const color = getPlayerColor(userId);
+        const rgba = PLAYER_COLOR_RGBA[color].slice();
+        rgba[3] = opacity;
 
         buffer.set(model, offset);
-        buffer.set(color, offset + model.length);
+        buffer.set(rgba, offset + model.length);
 
         offset += rect.instanceSize;
       }
@@ -374,76 +359,34 @@
     }
 
     // draw measure line
-    if (toolData.measure.lineTransform) {
-      renderer.useTexture("system.plain");
+    if (measurePath && selectedCharacterId) {
+      const character = data.state.characters[selectedCharacterId];
+      if (character) {
+        const { path } = measurePath;
+        const color = getPlayerColor(data.profile.user_id);
 
-      const lineBuffer = rect.allocate(1);
-      lineBuffer.set(toolData.measure.lineTransform);
+        renderer.useTexture("system.plain");
+        const lineBuffer = rect.allocate(Math.max(0, path.length - 1));
 
-      const red = new Float32Array([1, 0, 0, 1]);
-      lineBuffer.set(red, toolData.measure.lineTransform.length);
+        for (let i = 0; i < path.length - 1; i++) {
+          const offset = i * rect.instanceSize;
 
-      rect.draw();
-    }
+          const a = path[i];
+          const b = path[i + 1];
 
-    // draw measure cells
-    if (toolData.measure.cells.length >= 1) {
-      renderer.useTexture("system.plain");
+          const transform = getLineTransform(a, b);
+          lineBuffer.set(transform, offset);
+          lineBuffer.set(PLAYER_COLOR_RGBA[color], offset + transform.length);
+        }
 
-      const buffer = rect.allocate(toolData.measure.cells.length);
-      for (let i = 0; i < toolData.measure.cells.length; i++) {
-        const offset = i * rect.instanceSize;
-        const transform = GLM.mat4.create();
-        const { x, y } = toolData.measure.cells[i];
-        GLM.mat4.translate(transform, transform, GLM.vec3.fromValues(x, y, 0.11));
-        buffer.set(transform, offset);
-        const translucentWhite = new Float32Array([1, 1, 1, 0.6]);
-        buffer.set(translucentWhite, offset + transform.length);
+        rect.draw();
       }
-
-      rect.draw();
-    }
-
-    // draw decorations
-    for (let i = 0; i < levelData.decorations.length; i++) {
-      const key = levelData.decorations[i];
-      const elementId = decorationElementLookup[key];
-      const data = decorationDataLookup[key];
-
-      if (elementId === undefined || !data) {
-        continue;
-      }
-      const element = renderer.getAndUseElement<StaticModel>(elementId);
-      element.setCamera(camera);
-      const buffer = element.allocate(data.length);
-
-      for (let j = 0; j < data.length; j++) {
-        const offset = j * element.instanceSize;
-
-        const transform = GLM.mat4.create();
-        const { x, y, rotation, scale } = data[j];
-        const rounded = new Cartesian(x, y).scale(0.5).round().scale(2);
-        GLM.mat4.translate(
-          transform,
-          transform,
-          GLM.vec3.fromValues(rounded.x + 0.5, rounded.y + 0.5, 0),
-        );
-        GLM.mat4.rotateZ(transform, transform, rotation);
-        GLM.mat4.rotateX(transform, transform, degToRad(90));
-        GLM.mat4.scale(transform, transform, GLM.vec3.fromValues(2 * scale, 2 * scale, 2 * scale));
-
-        buffer.set(transform, offset);
-      }
-
-      element.draw();
     }
 
     // draw characters
-    for (const character of Object.values(characters)) {
-      const model = renderer.getAndUseElement<DynamicModel>(character.modelId);
-      model.setCamera(camera);
-      model.draw();
-    }
+    const model = renderer.getAndUseElement<DynamicModel>(characterModelId);
+    model.setCamera(camera);
+    model.draw();
   }
 
   async function handleSync(state: GameState) {
@@ -458,8 +401,8 @@
     }
 
     await Promise.all(
-      Object.entries(state.characters ?? {}).map(([characterId, { x, y, rot }]) => {
-        return handleLoadCharacter(characterId, x, y, rot);
+      Object.entries(state.characters ?? {}).map(([characterId, { userId, x, y, rot }]) => {
+        return handleLoadCharacter(userId, characterId, x, y, rot);
       }),
     );
 
@@ -526,26 +469,24 @@
     input = { type: "none" };
   }
 
-  function handleLeftMouseDown(event: MouseEvent) {
+  async function handleLeftMouseDown(event: MouseEvent) {
     const { x, y } = renderer.canvasCoordToWorldCoord(camera, event.x, event.y);
     const rounded = new Cartesian(x, y).round();
 
-    if (selectedCharacterId) {
-      fetch(`/api/games/${params.id}/characters/${selectedCharacterId}`, {
+    if (selectedCharacterId && !movementLocked) {
+      movementLocked = true;
+      const res = await tryFetch(`/api/games/${params.id}/characters/${selectedCharacterId}`, {
         method: "PUT",
         body: JSON.stringify({ x: rounded.x, y: rounded.y, rot: 0 }),
       });
+      if (!res.ok || !res.value.ok) {
+        movementLocked = false;
+        console.warn("Failed to move character.");
+      }
     }
   }
 
-  function handleRelease(event: MouseEvent) {
-    if (input.type === "dragging") {
-      input = { type: "none" };
-      dragStartCoord = null;
-      dragCurrentCoord = null;
-      toolData.measure = { ...toolData.measure, cells: [], distance: 0, lineTransform: null };
-    }
-
+  function handleLeftMouseUp(event: MouseEvent) {
     if (isDraggingCharacter) {
       const coord = renderer.canvasCoordToWorldCoord(camera, event.x, event.y);
       const { x, y } = new Cartesian(coord.x, coord.y).round();
@@ -554,28 +495,64 @@
         cameraLocked = true;
       });
       isDraggingCharacter = false;
+      renderer.getElement<DynamicModel>(characterModelId).deleteInstance(draggingCharacterId);
     }
   }
 
   function handleMove(event: MouseEvent) {
-    if (input.type === "dragging") {
+    const character = data.state.characters[selectedCharacterId ?? ""];
+    if (level && isMeasuring && character) {
       const { x, y } = renderer.canvasCoordToWorldCoord(camera, event.x, event.y);
-      const origin = new Cartesian(x, y);
-      const changedCell = !dragCurrentCoord?.isEqual(origin.round());
-      dragCurrentCoord = origin.round();
+      const start = new Cartesian(x, y).round();
+      const end = new Cartesian(character.x, character.y);
+      measurePath = level.shortestPath(start, end);
+      // TODO: support metric
+      measureText!.innerHTML = `${Math.ceil(2.5 * measurePath.cost)}ft`; // TODO ass shit
+      measureText!.style.left = `${event.x}px`;
+      measureText!.style.top = `${event.y}px`;
 
-      // TODO: rework measure inputs
-      if (
-        input.button === MouseButton.Left &&
-        toolData.activeTool?.type === "measure" &&
-        changedCell &&
-        dragStartCoord
-      ) {
-        toolData.updateMeasureLine(dragStartCoord, dragCurrentCoord, 0.05);
-        toolData.updateMeasureCells(dragStartCoord, dragCurrentCoord);
-        measureText!.style.left = `${event.x}px`;
-        measureText!.style.top = `${event.y}px`;
+      const color = getPlayerColor(data.profile.user_id);
+      measureText!.style.color = PLAYER_COLOR_HEX[color];
+    }
+
+    if (isDraggingCharacter) {
+      const model = renderer.getElement<DynamicModel>(characterModelId);
+      const { x, y } = renderer.canvasCoordToWorldCoord(camera, event.x, event.y);
+
+      if (draggingCharacterId !== undefined) {
+        const existing = model.getInstance(draggingCharacterId);
+        if (existing !== undefined) {
+          GLM.mat4.identity(existing.transform);
+          GLM.mat4.translate(
+            existing.transform,
+            existing.transform,
+            GLM.vec3.fromValues(x, y, 0.5),
+          );
+          GLM.mat4.rotateX(existing.transform, existing.transform, 0.5 * Math.PI);
+          GLM.mat4.scale(existing.transform, existing.transform, GLM.vec3.fromValues(2, 2, 2));
+          existing.updateTransforms();
+          existing.computeSkinningMatrix();
+          return;
+        }
       }
+
+      const { id, instance } = model.createInstance();
+      const color = getPlayerColor(data.profile.user_id);
+      const rgba = PLAYER_COLOR_RGBA[color].slice();
+      rgba[3] = 0.4;
+      instance.defaultMaterial = {
+        name: "color.solid",
+        baseColorFactor: rgba,
+        alphaMode: "BLEND",
+        alphaCutoff: 0,
+        doubleSided: false,
+      };
+      GLM.mat4.translate(instance.transform, instance.transform, GLM.vec3.fromValues(x, y, 0.5));
+      GLM.mat4.rotateX(instance.transform, instance.transform, 0.5 * Math.PI);
+      GLM.mat4.scale(instance.transform, instance.transform, GLM.vec3.fromValues(2, 2, 2));
+      instance.updateTransforms();
+      instance.computeSkinningMatrix();
+      draggingCharacterId = id;
     }
   }
 
@@ -590,7 +567,7 @@
     camera.translate(GLM.vec3.fromValues(dx, dy, 0));
   }
 
-  function handlePlayPing(coord: Cartesian) {
+  function handlePlayPing(userId: string, coord: Cartesian) {
     const id = getPingId();
     animator.playValue(
       0,
@@ -598,7 +575,7 @@
       1,
       (value) => {
         const opacity = Math.abs(Math.sin(value));
-        pings[id] = { point: coord, opacity };
+        pings[id] = { point: coord, userId, opacity };
       },
       () => {
         delete pings[id];
@@ -606,13 +583,25 @@
     );
   }
 
-  async function handleLoadCharacter(characterId: string, x: number, y: number, rot = 0) {
-    const modelId = expect(
-      await renderer.createDynamicGLBElement("/human.male.glb"),
-      "Failed to get model element ID.",
-    );
-    const model = renderer.getElement<DynamicModel>(modelId);
-    const instance = model.createInstance();
+  async function handleLoadCharacter(
+    userId: string,
+    characterId: string,
+    x: number,
+    y: number,
+    rot = 0,
+  ) {
+    const model = renderer.getElement<DynamicModel>(characterModelId);
+    const color = getPlayerColor(userId);
+
+    const { instance } = model.createInstance();
+    instance.defaultMaterial = {
+      name: "color.solid",
+      baseColorFactor: PLAYER_COLOR_RGBA[color],
+      alphaMode: "OPAQUE",
+      alphaCutoff: 0,
+      doubleSided: false,
+    };
+
     const transform = GLM.mat4.create();
     GLM.mat4.translate(transform, transform, GLM.vec3.fromValues(x, y, 0));
     GLM.mat4.rotateX(transform, transform, 0.5 * Math.PI);
@@ -622,12 +611,16 @@
     instance.applyAnimation("Idle", 0);
     instance.updateTransforms();
     instance.computeSkinningMatrix();
-    characters[characterId] = {
-      modelId,
-      instance,
+    characterInstances[characterId] = instance;
+
+    data.state.characters[characterId] = {
+      userId,
+      x,
+      y,
+      rot,
     };
 
-    if (data.state.characters[characterId].userId === data.profile.user_id) {
+    if (userId === data.profile.user_id) {
       selectedCharacterId = characterId;
     }
   }
@@ -647,6 +640,10 @@
   }
 
   function handleMoveCharacter(characterId: string, x: number, y: number) {
+    if (!level) {
+      return;
+    }
+
     const { x: prevX, y: prevY } = data.state.characters[characterId];
     data.state.characters[characterId].x = x;
     data.state.characters[characterId].y = y;
@@ -654,12 +651,10 @@
     const from = new Cartesian(prevX, prevY);
     const to = new Cartesian(x, y);
 
-    const path = aStar(from, to, (point: Cartesian) => {
-      return levelData?.grid[point.y]?.[point.x]?.texture !== undefined;
-    });
+    const { path } = level.shortestPath(from, to);
     const duration = 0.15 * path.length;
 
-    const { instance } = characters[characterId];
+    const instance = characterInstances[characterId];
     const anim = instance.model.animations["Run"];
 
     animator.playValue(
@@ -691,95 +686,31 @@
         unwrap(instance.applyAnimation("Idle", 0));
         instance.updateTransforms();
         unwrap(instance.computeSkinningMatrix());
+
+        if (characterId === selectedCharacterId) {
+          movementLocked = false;
+        }
       },
     );
   }
 
   async function handleLoadLevel(loadedLevel: LevelData) {
-    const textureUriLookup = loadedLevel.textures.reduce<Record<string, string>>((prev, key) => {
-      const cellTexture = Object.entries(cellTextures).find(
-        ([cellTextureKey]) => cellTextureKey === key,
-      );
-      if (!cellTexture) {
-        throw new Error(`Failed to find cell texture with key "${key}".`);
-      }
-      const [, { uri }] = cellTexture;
-      return { ...prev, [key]: uri };
-    }, {});
+    level = Level.load(loadedLevel);
+    await level.loadAssets(renderer);
 
-    // load decorations data lookup
-    decorationDataLookup = {};
-    for (let row = 0; row < loadedLevel.grid.length; row++) {
-      for (let col = 0; col < loadedLevel.grid.length; col++) {
-        const cell = loadedLevel.grid[row][col];
-        if (!cell || !cell.decoration) {
-          continue;
-        }
+    camera.zoom = DEFAULT_ZOOM;
 
-        const key = loadedLevel.decorations[cell.decoration.index];
-        if (!decorationDataLookup[key]) {
-          decorationDataLookup[key] = [
-            { x: col, y: row, rotation: cell.decoration.rotation, scale: cell.decoration.scale },
-          ];
-        } else {
-          decorationDataLookup[key].push({
-            x: col,
-            y: row,
-            rotation: cell.decoration.rotation,
-            scale: cell.decoration.scale,
-          });
-        }
-      }
+    const ownedCharacter = Object.entries(data.state.characters).find(
+      ([, { userId }]) => userId === data.profile.user_id,
+    );
+    if (ownedCharacter) {
+      const [characterId] = ownedCharacter;
+      selectedCharacterId = characterId;
+      cameraLocked = true;
+    } else {
+      selectedCharacterId = null;
+      focusCameraOnPoint(level.center);
     }
-
-    await Promise.all([
-      ...loadedLevel.textures.map(async (texture) => {
-        const uri = textureUriLookup[texture];
-        return renderer
-          .loadTexture(texture, uri, {
-            mode: "nearest",
-            repeat: true,
-          })
-          .catch((e) => {
-            if (e instanceof Error && e.message.includes("already in use")) {
-              return;
-            }
-            throw e;
-          });
-      }),
-      ...loadedLevel.decorations.map(async (key) => {
-        const decoration = (decorations as Record<string, (typeof decorations)["crate"]>)[key];
-        assert(!!decoration, `bad decoration "${key}"`);
-
-        const elementId = expect(
-          await renderer.createStaticGLBElement(decoration.uri),
-          "Failed to get static model element ID.",
-        );
-        decorationElementLookup[key] = elementId;
-      }),
-    ]);
-
-    levelData = loadedLevel;
-
-    camera.zoom = 15;
-    const content = levelData.grid.filter((row) => row.filter((cell) => cell).length > 0);
-    const minY = levelData.grid.indexOf(content[0]);
-    const maxY = levelData.grid.indexOf(content.at(-1)!);
-    const rowsByFirstCell = content.sort(
-      (a, b) => a.findIndex((cell) => cell) - b.findIndex((cell) => cell),
-    );
-    const minX = rowsByFirstCell[0].findIndex((cell) => cell);
-    const maxX = rowsByFirstCell.at(-1)!.findLastIndex((cell) => cell);
-    const yOffset = 100;
-    const cameraInverted = GLM.mat4.invert(GLM.mat4.create(), camera.view)!;
-    GLM.mat4.getTranslation(cameraInverted, cameraInverted);
-    camera.translate(
-      GLM.vec3.fromValues(
-        cameraInverted[0] - Math.max(0, maxX - (GRID_WIDTH - minX) / 2),
-        cameraInverted[1] - Math.max(0, maxY - (GRID_HEIGHT - minY) / 2) + yOffset,
-        0,
-      ),
-    );
   }
 
   async function handleMiddleMouseDown(event: MouseEvent) {
@@ -791,7 +722,7 @@
 
     const { x, y } = renderer.canvasCoordToWorldCoord(camera, event.x, event.y);
     const coord = new Cartesian(x, y).round().scale(0.5).floor().scale(2.0);
-    handlePlayPing(coord);
+    handlePlayPing(data.profile.user_id, coord);
 
     const res = await fetch(`/api/games/${params.id}/pings`, {
       method: "POST",
@@ -810,13 +741,21 @@
     bind:canvas
     onpointerleave={handleClear}
     onleftmousedown={handleLeftMouseDown}
+    onleftmouseup={handleLeftMouseUp}
     onmiddlemousedown={handleMiddleMouseDown}
-    onpointerup={handleRelease}
     onpointermove={handleMove}
     onwheel={handleScroll}
+    onrightmousedown={() => {
+      isMeasuring = true;
+    }}
+    onrightmouseup={() => {
+      isMeasuring = false;
+      measurePath = undefined;
+    }}
     ondbltap={(event) => {
       if (event.key === " ") {
         cameraLocked = true;
+        camera.zoom = DEFAULT_ZOOM;
       }
     }}
     onkeydown={(event) => {
@@ -921,14 +860,13 @@
       {isDraggingCharacter ? "Drop Anywhere On The Level" : "Drag This To Add Character To Level"}
     </button>
   {/if}
+  <ul class="absolute right-6 bottom-4 z-10 flex gap-4">
+    <li data-visible={cameraLocked} class="data-[visible=false]:hidden">Camera locked</li>
+    <li data-visible={movementLocked} class="data-[visible=false]:hidden">Walking</li>
+  </ul>
   <div
-    data-active={toolData.measure.cells.length > 0}
+    data-active={!!measurePath}
     bind:this={measureText}
-    class="pointer-events-none absolute z-10 hidden p-1 text-2xl font-bold text-red-600 data-[active=true]:flex"
-  >
-    <!-- TODO: support metric -->
-    <span class="text-shadow-aurora-gray-1400 text-shadow-sm">
-      {toolData.measure.distance * 2.5 + "ft"}
-    </span>
-  </div>
+    class="pointer-events-none absolute z-10 hidden p-1 text-2xl font-bold text-shadow-aurora-gray-1400 text-shadow-sm data-[active=true]:flex"
+  ></div>
 </main>
