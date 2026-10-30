@@ -156,7 +156,8 @@ export async function getGLTFModelParams(
   // gen buffers
   const glBuffers = bufferViews.map(({ buffer, byteLength, byteOffset, target }, i) => {
     if (!target) {
-      console.warn(`missing target in buffer view [${i}]`);
+      // TODO: only log this when debug logs are enabled
+      // console.warn(`missing target in buffer view [${i}]`);
       target = GLTFViewTarget.ArrayBuffer;
     }
 

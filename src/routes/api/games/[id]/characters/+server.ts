@@ -2,7 +2,6 @@ import { error, redirect } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 import { games } from "#lib/server/games.js";
 import { ServerMessageType, type CharacterLoaded } from "#lib/messages.js";
-import { getUserCharacter } from "#lib/server/database/characters.js";
 
 export const POST: RequestHandler = async ({ locals, params, request }) => {
   const { session } = locals;
@@ -19,14 +18,8 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
   const { characterId, x, y, rot }: { characterId: string; x: number; y: number; rot: number } =
     await request.json();
 
-  const character = await getUserCharacter(session.user_id, characterId);
-  if (!character) {
-    error(404, "Character not found.");
-  }
-
   await game.addCharacter({
     userId: session.user_id,
-    uri: character.uri,
     characterId,
     x,
     y,
@@ -36,7 +29,6 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
   const message: CharacterLoaded = {
     type: ServerMessageType.CharacterLoaded,
     userId: session.user_id,
-    uri: character.uri,
     characterId,
     x,
     y,

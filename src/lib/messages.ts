@@ -52,7 +52,6 @@ export type CharacterLoaded = {
   type: ServerMessageType.CharacterLoaded;
   userId: string;
   characterId: string;
-  uri: string;
   x: number;
   y: number;
   rot: number;

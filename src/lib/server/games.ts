@@ -26,7 +26,6 @@ export type GamePlayer =
 export type GameCharacter = {
   characterId: string;
   userId: string;
-  uri: string;
   x: number;
   y: number;
   /** in radians */
@@ -118,10 +117,9 @@ export class GameServer {
     await this.keystore.jsonSet(this.gameId, `$.players.${userId}.online`, online);
   }
 
-  async addCharacter({ userId, characterId, uri, x, y, rot }: GameCharacter) {
+  async addCharacter({ userId, characterId, x, y, rot }: GameCharacter) {
     await this.keystore.jsonSet(this.gameId, `$.characters.${characterId}`, {
       userId,
-      uri,
       x,
       y,
       rot,
@@ -139,11 +137,10 @@ export class GameServer {
 
   async updateCharacter(
     characterId: string,
-    { userId, uri, x, y, rot }: Omit<GameCharacter, "characterId">,
+    { userId, x, y, rot }: Omit<GameCharacter, "characterId">,
   ) {
     await this.keystore.jsonSet(this.gameId, `$.characters.${characterId}`, {
       userId,
-      uri,
       x,
       y,
       rot,
