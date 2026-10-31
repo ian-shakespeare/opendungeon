@@ -58,7 +58,6 @@
   let camera: Camera;
   let animator = new Animator();
   let level: Level | null = null;
-  let input: { type: "none" } | { type: "dragging"; button: number } = { type: "none" };
   let rectId: number;
   let holdingForward = false;
   let holdingLeft = false;
@@ -466,7 +465,8 @@
   }
 
   function handleClear() {
-    input = { type: "none" };
+    isMeasuring = false;
+    measurePath = undefined;
   }
 
   async function handleLeftMouseDown(event: MouseEvent) {

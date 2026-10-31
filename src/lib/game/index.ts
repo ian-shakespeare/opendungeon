@@ -1,5 +1,3 @@
-import type { Result } from "result";
-
 export const GRID_HEIGHT = 256;
 export const GRID_WIDTH = 256;
 
@@ -42,49 +40,3 @@ export enum MeasureShape {
 }
 
 export type GameTool = { type: string; icon: GameMenuToolIcon };
-
-/*
-type Player = { userId: string; username: string; avatarUri: string | null; online: boolean };
-type Character = { userId: string, uri: string, x: number, y: number, rotation: number };
-type Chat = {};
-
-type PlayerJoinHandler = (player: Omit<Player, "online">) => void;
-type PlayerLeaveHandler = (userId: string) => void;
-type CharacterLoadHandler = (character: any) => void;
-type CharacterMoveHandler = (a: any) => void;
-type ChatReceiveHandler = (chat: )
-
-export class Game {
-  private playerJoinHandler: PlayerJoinHandler | undefined;
-  private playerLeaveHandler: PlayerLeaveHandler | undefined;
-
-  private constructor() {}
-
-  static async join(gameId: string): Promise<Result<Game, string>> {
-  }
-
-  onPlayerJoin(cb: PlayerJoinHandler) {
-    this.playerJoinHandler = cb;
-  }
-
-  onPlayerLeave(cb: PlayerLeaveHandler) {
-    this.playerLeaveHandler = cb;
-  }
-
-  onCharacterLoad() {}
-
-  onCharacterMove() {}
-
-  onChatReceive() {}
-
-  onDiceRoll() {}
-
-  onPing() {}
-
-  characterMove() {}
-
-  sendChat() {}
-
-  ping(x: number, y: number) {}
-}
-*/

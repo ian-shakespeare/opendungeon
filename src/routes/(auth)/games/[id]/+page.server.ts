@@ -21,7 +21,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
     error(404, "Game not found.");
   }
 
-  let [profile, state, levels, friends] = await Promise.all([
+  const [profile, state, levels, friends] = await Promise.all([
     getProfile(session.user_id),
     game.getState(),
     listUserLevels(session.user_id),
