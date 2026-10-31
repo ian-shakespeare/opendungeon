@@ -3,7 +3,6 @@
   import { type PageProps } from "./$types";
   import {
     Command,
-    GRID_HEIGHT,
     GRID_WIDTH,
     MAXIMUM_ZOOM,
     MINIMUM_ZOOM,
@@ -27,7 +26,12 @@
   import GameToolMenu from "#lib/components/GameToolMenu.svelte";
   import Animator from "#lib/animator.js";
   import type { LevelData } from "#lib/server/database/levels.js";
-  import { ServerMessageType, type PlayerJoined, type ServerMessage } from "#lib/messages.js";
+  import {
+    ServerMessageType,
+    type DiceRolled,
+    type PlayerJoined,
+    type ServerMessage,
+  } from "#lib/messages.js";
   import { type GameState } from "#lib/server/games.js";
   import { PLAYER_COLOR_HEX, PLAYER_COLOR_RGBA, type PlayerColor } from "#lib/colors.js";
   import { GameTools } from "#lib/game/gametools.svelte.js";
@@ -110,10 +114,6 @@
 
       switch (message.type) {
         case ServerMessageType.ChatReceived: {
-          if (message.senderId === data.profile.user_id) {
-            return;
-          }
-
           const player = data.state.players[message.senderId];
           if (!player) {
             console.error("failing to receive message");
@@ -434,26 +434,12 @@
       return;
     }
 
-    messages.push({
-      username: data.profile.username,
-      avatarUri: data.profile.avatar_uri,
-      content: message,
-    });
-
-    const res = await fetch(`/api/games/${params.id}/chat`, {
-      method: "POST",
-      body: JSON.stringify({ content: message }),
-    });
-    if (!res.ok) {
-      const index = messages.findIndex((m) => typeof m === "object" && m.content === message);
-      if (index !== -1) {
-        messages.splice(index, 1);
     const command = Object.values(Command).find((c) => message.startsWith(c));
 
     const isPrivateRoll = command === Command.PrivateRoll;
 
     if (!isPrivateRoll) {
-      const res = await fetch(`/api/games/${data.game.game_id}/chat`, {
+      const res = await fetch(`/api/games/${params.id}/chat`, {
         method: "POST",
         body: JSON.stringify({ content: message }),
       });
@@ -468,7 +454,7 @@
 
     if (command) {
       const [, args] = message.split(command);
-      const res = await fetch(`/api/games/${data.game.game_id}/command`, {
+      const res = await fetch(`/api/games/${params.id}/command`, {
         method: "POST",
         body: JSON.stringify({
           command,
@@ -888,14 +874,6 @@
         }
       }}
       class="absolute bottom-4 z-10 justify-self-center bg-aurora-gray-1200 text-white"
-  <div
-    data-active={toolData.measure.cells.length > 0}
-    bind:this={measureText}
-    class="pointer-events-none absolute z-10 hidden p-1 text-2xl font-bold text-red-600 data-[active=true]:flex"
-  >
-    <!-- TODO: support metric -->
-    <span class="text-shadow-aurora-gray-1400 text-shadow-sm"
-      >{(toolData.measure.distance * 2.5).toFixed(1) + "ft"}</span
     >
       {isDraggingCharacter ? "Drop Anywhere On The Level" : "Drag This To Add Character To Level"}
     </button>

@@ -19,7 +19,7 @@ describe.concurrent("PriorityQueue", () => {
 
     expect(pq.isEmpty).toBe(false);
     expect(pq.length).toBe(1);
-    expect(pq.pop()).toBe({ value: "a", priority: 1 });
+    expect(pq.pop()).toEqual({ value: "a", priority: 1 });
     expect(pq.isEmpty).toBe(true);
   });
 
@@ -30,8 +30,8 @@ describe.concurrent("PriorityQueue", () => {
     pq.push("mid", 5);
 
     expect(pq.pop()).toEqual({ value: "high", priority: 1 });
-    expect(pq.pop()).toBe({ value: "mid", priority: 5 });
-    expect(pq.pop()).toBe({ value: "low", priority: 10 });
+    expect(pq.pop()).toEqual({ value: "mid", priority: 5 });
+    expect(pq.pop()).toEqual({ value: "low", priority: 10 });
     expect(pq.pop()).toBeNull();
   });
 
@@ -68,9 +68,9 @@ describe.concurrent("PriorityQueue", () => {
     pq.push("neg", -3);
     pq.push("zero", 0);
 
-    expect(pq.pop()).toBe({ value: "neg", priority: -3 });
-    expect(pq.pop()).toBe({ value: "zero", priority: 0 });
-    expect(pq.pop()).toBe({ value: "pos", priority: 5 });
+    expect(pq.pop()).toEqual({ value: "neg", priority: -3 });
+    expect(pq.pop()).toEqual({ value: "zero", priority: 0 });
+    expect(pq.pop()).toEqual({ value: "pos", priority: 5 });
   });
 
   test("works with many elements inserted in ascending order", () => {
@@ -102,11 +102,11 @@ describe.concurrent("PriorityQueue", () => {
 
     pq.push("c", 3);
     pq.push("a", 1);
-    expect(pq.pop()).toBe({ value: "a", priority: 1 });
+    expect(pq.pop()).toEqual({ value: "a", priority: 1 });
 
     pq.push("b", 2);
-    expect(pq.pop()).toBe({ value: "b", priority: 2 });
-    expect(pq.pop()).toBe({ value: "c", priority: 3 });
+    expect(pq.pop()).toEqual({ value: "b", priority: 2 });
+    expect(pq.pop()).toEqual({ value: "c", priority: 3 });
     expect(pq.pop()).toBeNull();
   });
 
