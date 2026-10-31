@@ -1,7 +1,14 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { type PageProps } from "./$types";
-  import { GRID_WIDTH, MAXIMUM_ZOOM, MINIMUM_ZOOM, type GameMessage } from "#lib/game/index.js";
+  import {
+    Command,
+    GRID_HEIGHT,
+    GRID_WIDTH,
+    MAXIMUM_ZOOM,
+    MINIMUM_ZOOM,
+    type GameMessage,
+  } from "#lib/game/index.js";
   import { MouseButton } from "#lib/controller.js";
   import {
     type Camera,
@@ -441,21 +448,46 @@
       const index = messages.findIndex((m) => typeof m === "object" && m.content === message);
       if (index !== -1) {
         messages.splice(index, 1);
+    const command = Object.values(Command).find((c) => message.startsWith(c));
+
+    const isPrivateRoll = command === Command.PrivateRoll;
+
+    if (!isPrivateRoll) {
+      const res = await fetch(`/api/games/${data.game.game_id}/chat`, {
+        method: "POST",
+        body: JSON.stringify({ content: message }),
+      });
+      if (!res.ok) {
+        const index = messages.findIndex((m) => typeof m === "object" && m.content === message);
+        if (index !== -1) {
+          messages.splice(index, 1);
+        }
+        return;
       }
-      return;
     }
 
-    if (message.startsWith("/roll")) {
-      const res = await fetch(`/api/games/${params.id}/roll`, {
+    if (command) {
+      const [, args] = message.split(command);
+      const res = await fetch(`/api/games/${data.game.game_id}/command`, {
         method: "POST",
         body: JSON.stringify({
-          rollString: message,
+          command,
+          args,
         }),
       });
 
       if (!res.ok) {
         const body = await res.json();
         console.error(body.message);
+        return;
+      }
+
+      if (isPrivateRoll) {
+        const rollMessage: DiceRolled = await res.json();
+        messages.push({
+          content: `${data.profile.username} rolled ${String(rollMessage.total)}`,
+          subcontent: rollMessage.rolls.join(", "),
+        });
       }
     }
   }
@@ -856,6 +888,14 @@
         }
       }}
       class="absolute bottom-4 z-10 justify-self-center bg-aurora-gray-1200 text-white"
+  <div
+    data-active={toolData.measure.cells.length > 0}
+    bind:this={measureText}
+    class="pointer-events-none absolute z-10 hidden p-1 text-2xl font-bold text-red-600 data-[active=true]:flex"
+  >
+    <!-- TODO: support metric -->
+    <span class="text-shadow-aurora-gray-1400 text-shadow-sm"
+      >{(toolData.measure.distance * 2.5).toFixed(1) + "ft"}</span
     >
       {isDraggingCharacter ? "Drop Anywhere On The Level" : "Drag This To Add Character To Level"}
     </button>
